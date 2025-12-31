@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+"""
+Fingerprint Classification Results Analysis Script
+Analyzes trained models performance and generates comprehensive reports
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from pathlib import Path
+
+def load_and_analyze_results(results_path="./results"):
+    """Load and analyze model comparison results"""
+    
+    # Check if results exist
+    csv_path = os.path.join(results_path, "model_comparison_results.csv")
+    if not os.path.exists(csv_path):
+        print(f"❌ Results file not found at: {csv_path}")
+        print("📋 Please run the training script first to generate results")
+        return None
+    
+    # Load results
+    print(f"📊 Loading results from: {csv_path}")
+    df = pd.read_csv(csv_path)
+    
+    return df
+
+def calculate_metrics(df):
+    """Calculate additional performance metrics"""
+    
+    # Calculate derived metrics
+    df['Total'] = df['TN'] + df['FP'] + df['FN'] + df['TP']
+    df['Accuracy'] = (df['TN'] + df['TP']) / df['Total']
+    df['Precision'] = df['TP'] / (df['TP'] + df['FP'] + 1e-7)  # Add small value to avoid division by zero
+    df['Recall'] = df['TP'] / (df['TP'] + df['FN'] + 1e-7)
+    df['Specificity'] = df['TN'] / (df['TN'] + df['FP'] + 1e-7)
+    df['F1_Score'] = 2 * (df['Precision'] * df['Recall']) / (df['Precision'] + df['Recall'] + 1e-7)
+    
+    # Handle NaN AUC values
+    df['ROC_AUC'] = df['ROC_AUC'].fillna(0.5)  # Replace NaN with neutral value
+    
+    return df
+
+def print_performance_summary(df):
+    """Print detailed performance summary"""
+    
+    print("\n" + "="*80)
+    print("🏆 FINGERPRINT CLASSIFICATION MODEL PERFORMANCE SUMMARY")
+    print("="*80)
+    
+    # Sort by accuracy
+    df_sorted = df.sort_values('Accuracy', ascending=False)
+    
+    print(f"\n📊 PERFORMANCE RANKINGS:")
+    print("-" * 60)
+    print(f"{'Rank':<4} {'Model':<15} {'Accuracy':<10} {'Precision':<10} {'Recall':<10} {'F1-Score':<10} {'AUC':<8}")
+    print("-" * 60)
+    
+    for rank, (idx, row) in enumerate(df_sorted.iterrows(), 1):
+        emoji = "🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else "  "
+        print(f"{emoji:<2}{rank:<2} {row['Model']:<15} {row['Accuracy']:<10.3f} {row['Precision']:<10.3f} "
+              f"{row['Recall']:<10.3f} {row['F1_Score']:<10.3f} {row['ROC_AUC']:<8.3f}")
+    
+    # Best model details
+    best_model = df_sorted.iloc[0]
+    print(f"\n🏅 BEST PERFORMING MODEL: {best_model['Model']}")
+    print("-" * 40)
+    print(f"   Accuracy:   {best_model['Accuracy']:.3f} ({best_model['Accuracy']*100:.1f}%)")
+    print(f"   Precision:  {best_model['Precision']:.3f}")
+    print(f"   Recall:     {best_model['Recall']:.3f}")
+    print(f"   F1-Score:   {best_model['F1_Score']:.3f}")
+    print(f"   AUC:        {best_model['ROC_AUC']:.3f}")
+    print(f"   True Pos:   {best_model['TP']}")
+    print(f"   True Neg:   {best_model['TN']}")
+    print(f"   False Pos:  {best_model['FP']}")
+    print(f"   False Neg:  {best_model['FN']}")
+    
+    # Performance insights
+    print(f"\n💡 INSIGHTS:")
+    accuracy_range = df_sorted['Accuracy'].max() - df_sorted['Accuracy'].min()
+    if accuracy_range < 0.05:
+        print("   🔍 All models perform very similarly - consider ensemble methods")
+    elif best_model['Accuracy'] > 0.9:
+        print("   🌟 Excellent performance achieved!")
+    elif best_model['Accuracy'] > 0.8:
+        print("   👍 Good performance - consider fine-tuning for improvement")
+    else:
+        print("   ⚠️  Performance could be improved - consider data augmentation or hyperparameter tuning")
+
+def create_performance_visualizations(df, save_path="./results"):
+    """Create comprehensive performance visualizations"""
+    
+    print(f"\n📈 Creating performance visualizations...")
+    
+    # Set style for better plots
+    plt.style.use('default')  # Use default style instead of deprecated seaborn-v0_8
+    sns.set_palette("husl")
+    
+    # 1. Model Comparison Bar Chart
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    
+    # Accuracy comparison
+    df_sorted = df.sort_values('Accuracy', ascending=True)
+    bars = ax1.barh(df_sorted['Model'], df_sorted['Accuracy'])
+    ax1.set_xlabel('Accuracy')
+    ax1.set_title('Model Accuracy Comparison')
+    ax1.set_xlim(0, 1)
+    
+    # Add value labels on bars
+    for i, bar in enumerate(bars):
+        width = bar.get_width()
+        ax1.text(width + 0.01, bar.get_y() + bar.get_height()/2, 
+                f'{width:.3f}', ha='left', va='center')
+    
+    # Precision, Recall, F1 comparison
+    metrics = ['Precision', 'Recall', 'F1_Score']
+    x = np.arange(len(df))
+    width = 0.25
+    
+    for i, metric in enumerate(metrics):
+        ax2.bar(x + i*width, df[metric], width, label=metric.replace('_', '-'))
+    
+    ax2.set_xlabel('Models')
+    ax2.set_ylabel('Score')
+    ax2.set_title('Precision, Recall & F1-Score Comparison')
+    ax2.set_xticks(x + width)
+    ax2.set_xticklabels(df['Model'], rotation=45)
+    ax2.legend()
+    ax2.set_ylim(0, 1)
+    
+    # AUC comparison
+    df_sorted_auc = df.sort_values('ROC_AUC', ascending=True)
+    bars_auc = ax3.barh(df_sorted_auc['Model'], df_sorted_auc['ROC_AUC'])
+    ax3.set_xlabel('AUC Score')
+    ax3.set_title('AUC Score Comparison')
+    ax3.set_xlim(0, 1)
+    
+    # Add value labels
+    for i, bar in enumerate(bars_auc):
+        width = bar.get_width()
+        ax3.text(width + 0.01, bar.get_y() + bar.get_height()/2, 
+                f'{width:.3f}', ha='left', va='center')
+    
+    # Confusion Matrix Heatmap for best model
+    best_model = df.loc[df['Accuracy'].idxmax()]
+    cm_data = np.array([[best_model['TN'], best_model['FP']], 
+                        [best_model['FN'], best_model['TP']]])
+    
+    sns.heatmap(cm_data, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['Predicted Negative', 'Predicted Positive'],
+                yticklabels=['Actual Negative', 'Actual Positive'],
+                ax=ax4)
+    ax4.set_title(f'Confusion Matrix - {best_model["Model"]} (Best Model)')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, 'model_performance_analysis.png'), 
+                dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    # 2. Detailed metrics radar chart
+    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(projection='polar'))
+    
+    # Select top 3 models for radar chart
+    top_models = df.nlargest(3, 'Accuracy')
+    
+    metrics = ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC']
+    angles = np.linspace(0, 2 * np.pi, len(metrics), endpoint=False).tolist()
+    angles += angles[:1]  # Complete the circle
+    
+    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
+    
+    for i, (_, model) in enumerate(top_models.iterrows()):
+        values = [model[metric] for metric in metrics]
+        values += values[:1]  # Complete the circle
+        
+        ax.plot(angles, values, 'o-', linewidth=2, label=model['Model'], color=colors[i])
+        ax.fill(angles, values, alpha=0.25, color=colors[i])
+    
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(metrics)
+    ax.set_ylim(0, 1)
+    ax.set_title('Top 3 Models - Performance Radar Chart', size=16, pad=20)
+    ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.0))
+    ax.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, 'model_radar_chart.png'), 
+                dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"   ✅ Visualizations saved to {save_path}/")
+
+def generate_detailed_report(df, save_path="./results"):
+    """Generate a detailed text report"""
+    
+    report_path = os.path.join(save_path, "detailed_analysis_report.txt")
+    
+    with open(report_path, 'w') as f:
+        f.write("FINGERPRINT CLASSIFICATION - DETAILED ANALYSIS REPORT\n")
+        f.write("=" * 60 + "\n\n")
+        
+        f.write(f"Analysis Date: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Total Models Analyzed: {len(df)}\n\n")
+        
+        # Model Rankings
+        f.write("MODEL PERFORMANCE RANKINGS:\n")
+        f.write("-" * 40 + "\n")
+        df_sorted = df.sort_values('Accuracy', ascending=False)
+        
+        for rank, (_, row) in enumerate(df_sorted.iterrows(), 1):
+            f.write(f"{rank}. {row['Model']:<15} - Accuracy: {row['Accuracy']:.3f}\n")
+        
+        # Best Model Analysis
+        best_model = df_sorted.iloc[0]
+        f.write(f"\nBEST MODEL ANALYSIS: {best_model['Model']}\n")
+        f.write("-" * 40 + "\n")
+        f.write(f"Overall Accuracy: {best_model['Accuracy']:.3f} ({best_model['Accuracy']*100:.1f}%)\n")
+        f.write(f"Precision: {best_model['Precision']:.3f}\n")
+        f.write(f"Recall: {best_model['Recall']:.3f}\n")
+        f.write(f"F1-Score: {best_model['F1_Score']:.3f}\n")
+        f.write(f"AUC: {best_model['ROC_AUC']:.3f}\n\n")
+        
+        # Confusion Matrix Analysis
+        f.write("CONFUSION MATRIX BREAKDOWN:\n")
+        f.write(f"True Positives: {best_model['TP']} (correctly identified positive cases)\n")
+        f.write(f"True Negatives: {best_model['TN']} (correctly identified negative cases)\n")
+        f.write(f"False Positives: {best_model['FP']} (incorrectly identified as positive)\n")
+        f.write(f"False Negatives: {best_model['FN']} (incorrectly identified as negative)\n\n")
+        
+        # Recommendations
+        f.write("RECOMMENDATIONS:\n")
+        f.write("-" * 20 + "\n")
+        if best_model['Accuracy'] > 0.95:
+            f.write("- Excellent performance! Consider deployment.\n")
+        elif best_model['Accuracy'] > 0.85:
+            f.write("- Good performance. Consider fine-tuning for production.\n")
+        else:
+            f.write("- Performance needs improvement. Consider:\n")
+            f.write("  * Data augmentation\n")
+            f.write("  * Hyperparameter tuning\n")
+            f.write("  * More training data\n")
+        
+        f.write(f"\nFor deployment, use: {best_model['Model']}.h5\n")
+    
+    print(f"   📄 Detailed report saved to: {report_path}")
+
+def main():
+    """Main analysis function"""
+    print("🔍 FINGERPRINT CLASSIFICATION RESULTS ANALYZER")
+    print("="*50)
+    
+    # Check if results directory exists
+    results_path = "./results"
+    if not os.path.exists(results_path):
+        print(f"❌ Results directory not found: {results_path}")
+        print("📋 Please run the training script first!")
+        return
+    
+    # Load results
+    df = load_and_analyze_results(results_path)
+    if df is None:
+        return
+    
+    # Calculate metrics
+    df = calculate_metrics(df)
+    
+    # Print summary
+    print_performance_summary(df)
+    
+    # Create visualizations
+    create_performance_visualizations(df, results_path)
+    
+    # Generate report
+    generate_detailed_report(df, results_path)
+    
+    print(f"\n✅ ANALYSIS COMPLETE!")
+    print(f"📁 All analysis files saved to: {results_path}/")
+    print(f"🎯 Use the best model: {df.loc[df['Accuracy'].idxmax(), 'Model']}.h5")
+
+if __name__ == "__main__":
+    main()

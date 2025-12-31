@@ -1,0 +1,267 @@
+#!/bin/bash
+
+# Fingerprint Classification Environment Setup Script
+# This script sets up the environment for local training
+
+set -e  # Exit on any error
+
+echo "🚀 Setting up Fingerprint Classification Environment"
+echo "=================================================="
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if Python 3 is installed
+check_python() {
+    print_status "Checking Python installation..."
+    if command -v python3 &> /dev/null; then
+        PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
+        print_success "Python $PYTHON_VERSION found"
+        
+        # Check if version is >= 3.8
+        if python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
+            print_success "Python version is compatible (>=3.8)"
+        else
+            print_error "Python 3.8 or higher is required. Found: $PYTHON_VERSION"
+            exit 1
+        fi
+    else
+        print_error "Python 3 is not installed. Please install Python 3.8 or higher."
+        print_status "On macOS, you can install Python using:"
+        echo "  brew install python"
+        echo "  or download from https://python.org"
+        exit 1
+    fi
+}
+
+# Check if pip is installed
+check_pip() {
+    print_status "Checking pip installation..."
+    if command -v pip3 &> /dev/null; then
+        PIP_VERSION=$(pip3 --version | cut -d' ' -f2)
+        print_success "pip $PIP_VERSION found"
+    else
+        print_error "pip3 is not installed. Installing pip..."
+        python3 -m ensurepip --upgrade
+    fi
+}
+
+# Create virtual environment
+setup_venv() {
+    print_status "Setting up virtual environment..."
+    
+    VENV_DIR="venv"
+    
+    if [ -d "$VENV_DIR" ]; then
+        print_warning "Virtual environment already exists. Removing old one..."
+        rm -rf "$VENV_DIR"
+    fi
+    
+    print_status "Creating virtual environment..."
+    python3 -m venv "$VENV_DIR"
+    
+    print_status "Activating virtual environment..."
+    source "$VENV_DIR/bin/activate"
+    
+    print_status "Upgrading pip in virtual environment..."
+    pip install --upgrade pip
+    
+    print_success "Virtual environment created and activated"
+}
+
+# Install requirements
+install_requirements() {
+    print_status "Installing Python packages..."
+    
+    if [ -f "requirements.txt" ]; then
+        print_status "Installing from requirements.txt..."
+        pip install -r requirements.txt
+        print_success "All packages installed successfully"
+    else
+        print_error "requirements.txt not found. Installing basic packages..."
+        pip install tensorflow numpy pandas scikit-learn matplotlib Pillow
+    fi
+}
+
+# Create directory structure
+create_directories() {
+    print_status "Creating directory structure..."
+    
+    # Create data directory
+    mkdir -p data/fingerprint
+    mkdir -p results
+    mkdir -p logs
+    
+    print_success "Directory structure created:"
+    echo "  📁 data/fingerprint/  - Place your dataset here"
+    echo "  📁 results/          - Training results will be saved here"
+    echo "  📁 logs/             - Log files will be stored here"
+}
+
+# Check GPU availability (optional)
+check_gpu() {
+    print_status "Checking GPU availability..."
+    
+    if python3 -c "import tensorflow as tf; print('GPU available:', len(tf.config.experimental.list_physical_devices('GPU')) > 0)" 2>/dev/null; then
+        print_success "GPU check completed"
+    else
+        print_warning "Could not check GPU availability. TensorFlow may not be installed yet."
+    fi
+}
+
+# Create activation script
+create_activation_script() {
+    print_status "Creating activation script..."
+    
+    cat > activate_env.sh << 'EOF'
+#!/bin/bash
+# Activation script for fingerprint classification environment
+
+echo "🔥 Activating Fingerprint Classification Environment"
+echo "=================================================="
+
+# Check if virtual environment exists
+if [ ! -d "venv" ]; then
+    echo "❌ Virtual environment not found. Run setup.sh first."
+    exit 1
+fi
+
+# Activate virtual environment
+source venv/bin/activate
+
+echo "✅ Environment activated"
+echo ""
+echo "📋 Available commands:"
+echo "  python fingerprint_classifier.py           # Train all models"
+echo "  python analyze_results.py                 # Analyze training results"
+echo "  python use_model.py                       # Use trained models"
+echo ""
+echo "📁 Directory structure:"
+echo "  data/fingerprint/  - Place your dataset here"
+echo "  results/           - Results will be saved here"
+echo ""
+echo "To deactivate the environment, run: deactivate"
+EOF
+
+    chmod +x activate_env.sh
+    print_success "Activation script created: activate_env.sh"
+}
+
+# Create sample dataset structure info
+create_dataset_info() {
+    print_status "Creating dataset structure information..."
+    
+    cat > DATA_SETUP.md << 'EOF'
+# Dataset Setup Instructions
+
+## Required Directory Structure
+
+Your dataset should be organized as follows:
+
+```
+data/fingerprint/
+├── class1/          (e.g., "genuine" or "real")
+│   ├── image1.jpg
+│   ├── image2.png
+│   └── ...
+└── class2/          (e.g., "fake" or "spoofed")
+    ├── image3.jpg
+    ├── image4.png
+    └── ...
+```
+
+## Supported Image Formats
+- JPEG (.jpg, .jpeg)
+- PNG (.png)
+- BMP (.bmp)
+- TIFF (.tiff, .tif)
+
+## Dataset Guidelines
+
+1. **Balanced Classes**: Try to have roughly equal numbers of images in each class
+2. **Image Quality**: Use clear, well-lit images for best results
+3. **Consistent Naming**: Use descriptive folder names (e.g., "real_fingerprints", "fake_fingerprints")
+4. **Minimum Size**: At least 100 images per class recommended
+5. **Image Size**: Images will be automatically resized, but try to use consistent aspect ratios
+
+## Example Commands
+
+```bash
+# Train all 6 models (ResNet50, VGG16, InceptionV3, DenseNet121, EfficientNetB0, Xception)
+python fingerprint_classifier.py
+
+# After training, analyze results and get performance report
+python analyze_results.py
+
+# Use the best trained model for predictions
+python use_model.py
+```
+
+## Troubleshooting
+
+- **"No images found"**: Check that images are in subdirectories, not directly in the main folder
+- **"Out of memory"**: Reduce BATCH_SIZE or IMG_SIZE in fingerprint_classifier.py
+- **"Slow training"**: Enable GPU or reduce EPOCHS in fingerprint_classifier.py
+EOF
+
+    print_success "Dataset setup guide created: DATA_SETUP.md"
+}
+
+# Main setup function
+main() {
+    echo
+    print_status "Starting environment setup..."
+    echo
+    
+    # Run setup steps
+    check_python
+    check_pip
+    setup_venv
+    install_requirements
+    create_directories
+    check_gpu
+    create_activation_script
+    create_dataset_info
+    
+    echo
+    print_success "🎉 Setup completed successfully!"
+    echo
+    echo "🔥 Next Steps:"
+    echo "1. Place your dataset in data/fingerprint/ following the structure in DATA_SETUP.md"
+    echo "2. Activate the environment: source activate_env.sh"
+    echo "3. Run training: python fingerprint_classifier.py"
+    echo
+    echo "💡 Useful commands:"
+    echo "  ./activate_env.sh                          # Activate environment"
+    echo "  python fingerprint_classifier.py           # Train all models"
+    echo "  python analyze_results.py                 # Analyze training results"
+    echo "  python use_model.py                       # Use trained models"
+    echo
+    echo "📚 Read DATA_SETUP.md for dataset setup instructions"
+}
+
+# Check if script is being run directly
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    main "$@"
+fi
