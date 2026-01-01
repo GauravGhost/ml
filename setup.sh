@@ -38,23 +38,57 @@ check_python() {
     
     # Check for python3 first (Linux/macOS), then python (Windows)
     PYTHON_CMD=""
-    if command -v python3 &> /dev/null; then
-        PYTHON_CMD="python3"
-    elif command -v python &> /dev/null; then
-        PYTHON_CMD="python"
+    
+    # For Windows (Git Bash), try different approaches to find Python
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+        # Windows-specific: try to find actual Python executable
+        if command -v py &> /dev/null; then
+            # Try Windows Python Launcher first
+            PYTHON_CMD="py"
+        elif command -v python.exe &> /dev/null; then
+            # Try python.exe directly
+            PYTHON_CMD="python.exe"
+        elif which python 2>/dev/null | grep -v "not found" | grep -v "Microsoft" &> /dev/null; then
+            # Try python but avoid Microsoft Store alias
+            PYTHON_CMD="python"
+        else
+            print_error "Python is not properly installed or configured."
+            echo "Windows issue detected: Microsoft Store alias is interfering."
+            echo ""
+            echo "Please fix this by either:"
+            echo "1. Disable Python app execution aliases:"
+            echo "   Settings > Apps > Advanced app settings > App execution aliases"
+            echo "   Turn OFF 'python.exe' and 'python3.exe'"
+            echo ""
+            echo "2. Or reinstall Python from python.org and ensure 'Add to PATH' is checked"
+            exit 1
+        fi
     else
-        print_error "Python is not installed or not in PATH."
-        print_status "On macOS, you can install Python using:"
-        echo "  brew install python"
-        echo "  or download from https://python.org"
+        # Linux/macOS: try python3 first, then python
+        if command -v python3 &> /dev/null; then
+            PYTHON_CMD="python3"
+        elif command -v python &> /dev/null; then
+            PYTHON_CMD="python"
+        else
+            print_error "Python is not installed or not in PATH."
+            print_status "On macOS, you can install Python using:"
+            echo "  brew install python"
+            echo "  or download from https://python.org"
+            exit 1
+        fi
+    fi
+    
+    # Test if the Python command actually works
+    if ! $PYTHON_CMD --version &> /dev/null; then
+        print_error "Python command '$PYTHON_CMD' found but not working properly."
         exit 1
     fi
     
-    PYTHON_VERSION=$($PYTHON_CMD --version | cut -d' ' -f2)
-    print_success "Python $PYTHON_VERSION found"
+    PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | cut -d' ' -f2)
+    print_success "Python $PYTHON_VERSION found (using: $PYTHON_CMD)"
     
     # Check if version is >= 3.8
-    if $PYTHON_CMD -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
+    if $PYTHON_CMD -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)" 2>/dev/null; then
         print_success "Python version is compatible (>=3.8)"
     else
         print_error "Python 3.8 or higher is required. Found: $PYTHON_VERSION"
