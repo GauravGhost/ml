@@ -135,12 +135,14 @@ setup_venv() {
     print_status "Activating virtual environment..."
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
         source "$VENV_DIR/Scripts/activate"
+        VENV_PYTHON="$VENV_DIR/Scripts/python.exe"
     else
         source "$VENV_DIR/bin/activate"
+        VENV_PYTHON="$VENV_DIR/bin/python"
     fi
     
     print_status "Upgrading pip in virtual environment..."
-    pip install --upgrade pip
+    $VENV_PYTHON -m pip install --upgrade pip
     
     print_success "Virtual environment created and activated"
 }
