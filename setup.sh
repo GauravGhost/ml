@@ -153,8 +153,20 @@ install_requirements() {
     
     if [ -f "requirements.txt" ]; then
         print_status "Installing from requirements.txt..."
-        pip install -r requirements.txt
-        print_success "All packages installed successfully"
+        if pip install -r requirements.txt; then
+            print_success "All packages installed successfully"
+        else
+            print_warning "Some packages failed to install. Trying with latest versions..."
+            print_status "Installing essential packages with latest versions..."
+            pip install tensorflow numpy pandas scikit-learn matplotlib seaborn Pillow opencv-python tqdm jupyter ipykernel
+            
+            if [ $? -eq 0 ]; then
+                print_success "Essential packages installed successfully"
+            else
+                print_error "Failed to install required packages. Please check your Python version and internet connection."
+                exit 1
+            fi
+        fi
     else
         print_error "requirements.txt not found. Installing basic packages..."
         pip install tensorflow numpy pandas scikit-learn matplotlib Pillow

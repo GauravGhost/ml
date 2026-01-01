@@ -1,6 +1,6 @@
 # Requirements for Fingerprint Classification Training
 # Core ML and Data Science Libraries
-tensorflow>=2.10.0,<2.16
+tensorflow>=2.15.0
 numpy>=1.21.0
 pandas>=1.3.0
 scikit-learn>=1.0.0
