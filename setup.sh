@@ -130,7 +130,7 @@ setup_venv() {
     fi
     
     print_status "Creating virtual environment..."
-    python3 -m venv "$VENV_DIR"
+    $PYTHON_CMD -m venv "$VENV_DIR"
     
     print_status "Activating virtual environment..."
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
