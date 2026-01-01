@@ -35,22 +35,29 @@ print_error() {
 # Check if Python 3 is installed
 check_python() {
     print_status "Checking Python installation..."
+    
+    # Check for python3 first (Linux/macOS), then python (Windows)
+    PYTHON_CMD=""
     if command -v python3 &> /dev/null; then
-        PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
-        print_success "Python $PYTHON_VERSION found"
-        
-        # Check if version is >= 3.8
-        if python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
-            print_success "Python version is compatible (>=3.8)"
-        else
-            print_error "Python 3.8 or higher is required. Found: $PYTHON_VERSION"
-            exit 1
-        fi
+        PYTHON_CMD="python3"
+    elif command -v python &> /dev/null; then
+        PYTHON_CMD="python"
     else
-        print_error "Python 3 is not installed. Please install Python 3.8 or higher."
+        print_error "Python is not installed or not in PATH."
         print_status "On macOS, you can install Python using:"
         echo "  brew install python"
         echo "  or download from https://python.org"
+        exit 1
+    fi
+    
+    PYTHON_VERSION=$($PYTHON_CMD --version | cut -d' ' -f2)
+    print_success "Python $PYTHON_VERSION found"
+    
+    # Check if version is >= 3.8
+    if $PYTHON_CMD -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
+        print_success "Python version is compatible (>=3.8)"
+    else
+        print_error "Python 3.8 or higher is required. Found: $PYTHON_VERSION"
         exit 1
     fi
 }
@@ -58,18 +65,28 @@ check_python() {
 # Check if pip is installed
 check_pip() {
     print_status "Checking pip installation..."
-    if command -v pip3 &> /dev/null; then
-        PIP_VERSION=$(pip3 --version | cut -d' ' -f2)
-        print_success "pip $PIP_VERSION found"
+    
+    # Use same python command as discovered above
+    PIP_CMD=""
+    if command -v pip3 &> /dev/null && [ "$PYTHON_CMD" = "python3" ]; then
+        PIP_CMD="pip3"
+    elif command -v pip &> /dev/null; then
+        PIP_CMD="pip"
     else
-        print_error "pip3 is not installed. Installing pip..."
-        python3 -m ensurepip --upgrade
+        print_error "pip is not installed. Installing pip..."
+        $PYTHON_CMD -m ensurepip --upgrade
+        PIP_CMD="pip"
+    fi
+    
+    if command -v $PIP_CMD &> /dev/null; then
+        PIP_VERSION=$($PIP_CMD --version | cut -d' ' -f2)
+        print_success "pip $PIP_VERSION found"
     fi
 }
 
 # Create virtual environment
 setup_venv() {
-    print_status "Setting up virtual environment..."
+    $PYTHON_CMDtatus "Setting up virtual environment..."
     
     VENV_DIR="venv"
     
@@ -127,7 +144,7 @@ create_directories() {
 check_gpu() {
     print_status "Checking GPU availability..."
     
-    if python3 -c "import tensorflow as tf; print('GPU available:', len(tf.config.experimental.list_physical_devices('GPU')) > 0)" 2>/dev/null; then
+    if $PYTHON_CMD -c "import tensorflow as tf; print('GPU available:', len(tf.config.experimental.list_physical_devices('GPU')) > 0)" 2>/dev/null; then
         print_success "GPU check completed"
     else
         print_warning "Could not check GPU availability. TensorFlow may not be installed yet."
