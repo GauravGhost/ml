@@ -19,12 +19,8 @@ ml/
 ├── fingerprint_classifier.py    # 🎯 Main training script
 ├── analyze_results.py           # 📊 Results analysis & visualization
 ├── use_model.py                # 🧠 Model usage demo
-├── setup.sh                    # 🛠️ Cross-platform bash setup
-├── setup.bat                   # 🪟 Windows Command Prompt setup
-├── setup.ps1                   # ⚡ Windows PowerShell setup
-├── activate_env.sh             # 🔥 Cross-platform activation
-├── activate_env.bat            # 🪟 Windows batch activation
-├── activate_env.ps1            # ⚡ PowerShell activation
+├── setup.sh                    # 🛠️ Cross-platform setup (works on all systems)
+├── activate_env.sh             # 🔥 Cross-platform activation (works on all systems)
 ├── data/fingerprint/           # 📂 Your dataset goes here
 └── results/                    # 💾 All outputs saved here
 ```
@@ -46,9 +42,8 @@ python fingerprint_classifier.py     # Train all 6 models
 
 ### 🪟 Windows
 
-Choose your preferred method:
+**Recommended: Use Git Bash** (most reliable)
 
-#### Option 1: Git Bash (Recommended)
 1. Install [Git for Windows](https://gitforwindows.org/)
 2. Open Git Bash in project directory:
 ```bash
@@ -57,22 +52,10 @@ Choose your preferred method:
 python fingerprint_classifier.py
 ```
 
-#### Option 2: Command Prompt
-```cmd
-setup.bat                     # Windows batch setup
-activate_env.bat              # Windows batch activation  
-python fingerprint_classifier.py
-```
-
-#### Option 3: PowerShell
-```powershell
-# Enable script execution (first time only)
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-.\setup.ps1                   # PowerShell setup
-.\activate_env.ps1            # PowerShell activation
-python fingerprint_classifier.py
-```
+**Alternative: Command Prompt or PowerShell**
+If you prefer native Windows commands, the bash scripts work in most cases, but you may need to:
+- Disable Windows Store Python aliases (Settings > Apps > App execution aliases)
+- Use `py` instead of `python` if needed
 
 ## 📋 Prerequisites
 
