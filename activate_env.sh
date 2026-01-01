@@ -10,8 +10,12 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Activate virtual environment
-source venv/bin/activate
+# Activate virtual environment (cross-platform)
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+    source venv/Scripts/activate
+else
+    source venv/bin/activate
+fi
 
 echo "✅ Environment activated"
 echo ""

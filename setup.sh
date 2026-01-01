@@ -82,7 +82,11 @@ setup_venv() {
     python3 -m venv "$VENV_DIR"
     
     print_status "Activating virtual environment..."
-    source "$VENV_DIR/bin/activate"
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+        source "$VENV_DIR/Scripts/activate"
+    else
+        source "$VENV_DIR/bin/activate"
+    fi
     
     print_status "Upgrading pip in virtual environment..."
     pip install --upgrade pip
