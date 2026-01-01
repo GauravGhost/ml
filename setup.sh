@@ -120,7 +120,7 @@ check_pip() {
 
 # Create virtual environment
 setup_venv() {
-    $PYTHON_CMDtatus "Setting up virtual environment..."
+    print_status "Setting up virtual environment..."
     
     VENV_DIR="venv"
     
