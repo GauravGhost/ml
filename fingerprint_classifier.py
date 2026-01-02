@@ -29,13 +29,12 @@ if gpus:
 else:
     print("⚠️  No GPU found, using CPU")
 
-# Configuration - Update these paths for your local setup
+# Configuration
 IMG_SIZE = (160, 160)
 BATCH_SIZE = 32
 EPOCHS = 10
 
-# Update these paths to your local dataset location
-DATASET_PATH = "./data/fingerprint"  # Local dataset path
+DATASET_PATH = "./data/fingerprint"
 SAVE_PATH = "./results"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
@@ -43,27 +42,23 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 print(f"📁 Dataset path: {DATASET_PATH}")
 print(f"💾 Results will be saved to: {SAVE_PATH}")
 
-# Data generators
 datagen = ImageDataGenerator(
     rescale=1./255,
     validation_split=0.2
 )
 
-# Check if dataset exists
 if not os.path.exists(DATASET_PATH):
     print(f"❌ Dataset not found at {DATASET_PATH}")
     print("📋 Please update DATASET_PATH variable to point to your fingerprint dataset")
     print("   Expected structure: DATASET_PATH/class1/, DATASET_PATH/class2/, etc.")
     exit(1)
 
-# Detect number of classes
 class_folders = [d for d in os.listdir(DATASET_PATH) 
                 if os.path.isdir(os.path.join(DATASET_PATH, d)) and not d.startswith('.')]
 num_classes = len(class_folders)
 
 print(f"📂 Found {num_classes} classes: {class_folders}")
 
-# Determine class mode
 if num_classes == 2:
     class_mode = 'binary'
     activation = 'sigmoid'
@@ -103,18 +98,15 @@ def train_and_evaluate(model_fn, model_name):
     """Train and evaluate a model - exact copy of original Colab function"""
     print(f"\n🚀 Training {model_name}")
     
-    # Create base model
     base_model = model_fn(
         weights='imagenet',
         include_top=False,
         input_shape=(160, 160, 3)
     )
 
-    # Freeze base model layers
     for layer in base_model.layers:
         layer.trainable = False
 
-    # Add custom layers
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     x = Dense(64, activation='relu')(x)
@@ -122,7 +114,6 @@ def train_and_evaluate(model_fn, model_name):
 
     model = Model(base_model.input, output)
 
-    # Compile model
     model.compile(
         optimizer='adam',
         loss=loss,
@@ -131,7 +122,6 @@ def train_and_evaluate(model_fn, model_name):
 
     print(f"📊 {model_name} - Total parameters: {model.count_params():,}")
 
-    # Train model
     history = model.fit(
         train_data,
         epochs=EPOCHS,
@@ -141,17 +131,14 @@ def train_and_evaluate(model_fn, model_name):
         verbose=1
     )
 
-    # Make predictions
     val_data.reset()
     y_true = val_data.classes
     y_pred_proba = model.predict(val_data, verbose=0)
     
     if class_mode == 'binary':
-        # Binary classification
         y_prob = y_pred_proba.ravel()
         y_pred = (y_prob > 0.5).astype(int)
         
-        # Ensure arrays are same length
         min_len = min(len(y_true), len(y_prob))
         y_true = y_true[:min_len]
         y_prob = y_prob[:min_len]
@@ -161,25 +148,21 @@ def train_and_evaluate(model_fn, model_name):
         cm = confusion_matrix(y_true, y_pred)
         auc = roc_auc_score(y_true, y_prob)
     else:
-        # Multi-class classification
         y_pred = np.argmax(y_pred_proba, axis=1)
         
-        # Ensure arrays are same length
         min_len = min(len(y_true), len(y_pred))
         y_true = y_true[:min_len]
         y_pred = y_pred[:min_len]
         y_pred_proba = y_pred_proba[:min_len]
         
-        # Calculate metrics
         cm = confusion_matrix(y_true, y_pred)
         
-        # For multi-class AUC, use one-vs-rest
         try:
             from sklearn.preprocessing import label_binarize
             y_true_bin = label_binarize(y_true, classes=list(range(num_classes)))
             auc = roc_auc_score(y_true_bin, y_pred_proba, average='macro', multi_class='ovr')
         except:
-            auc = 0.0  # If AUC calculation fails
+            auc = 0.0
             print(f"   ⚠️  Could not calculate AUC for multi-class")
 
     print(f"📈 {model_name} - AUC: {auc:.4f}")
@@ -214,7 +197,6 @@ def train_and_evaluate(model_fn, model_name):
         plt.savefig(f"{SAVE_PATH}/{model_name}_roc_curve.png", dpi=300, bbox_inches='tight')
         plt.close()
     else:
-        # Multi-class ROC curve
         plt.figure(figsize=(10, 8))
         colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
         
@@ -224,7 +206,6 @@ def train_and_evaluate(model_fn, model_name):
             else:
                 color = np.random.rand(3,)
             
-            # Binary classification for each class
             y_true_binary = (y_true == i).astype(int)
             y_score = y_pred_proba[:, i]
             
@@ -281,7 +262,6 @@ def train_and_evaluate(model_fn, model_name):
     return auc, cm
 
 if __name__ == "__main__":
-    # Model definitions - same as original
     models = {
         "ResNet50": ResNet50,
         "VGG16": VGG16,
@@ -296,7 +276,7 @@ if __name__ == "__main__":
     print(f"\n🏁 Starting training for {len(models)} models...")
     print(f"⚙️  Configuration: {EPOCHS} epochs, batch size {BATCH_SIZE}, image size {IMG_SIZE}")
 
-    # Train each model - same as original
+    # Train each model
     for name, fn in models.items():
         try:
             auc, cm = train_and_evaluate(fn, name)
@@ -312,7 +292,7 @@ if __name__ == "__main__":
             print(f"❌ Error training {name}: {e}")
             continue
 
-    # Save results - same as original
+    # Save results
     if results:
         df = pd.DataFrame(results)
         df = df.sort_values(by="ROC_AUC", ascending=False)
