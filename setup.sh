@@ -41,9 +41,12 @@ check_python() {
     
     # For Windows (Git Bash), try different approaches to find Python
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
-        # Windows-specific: try to find actual Python executable
-        if command -v py &> /dev/null; then
-            # Try Windows Python Launcher first
+        # Windows-specific: try to find Python 3.12 first (TensorFlow compatible)
+        if command -v py &> /dev/null && py -3.12 --version &> /dev/null; then
+            # Use Python 3.12 specifically for TensorFlow compatibility
+            PYTHON_CMD="py -3.12"
+        elif command -v py &> /dev/null; then
+            # Try Windows Python Launcher with default version
             PYTHON_CMD="py"
         elif command -v python.exe &> /dev/null; then
             # Try python.exe directly
