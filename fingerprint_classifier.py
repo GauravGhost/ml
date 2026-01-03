@@ -30,9 +30,9 @@ else:
     print("⚠️  No GPU found, using CPU")
 
 # Configuration
-IMG_SIZE = (160, 160)
-BATCH_SIZE = 32
-EPOCHS = 10
+IMG_SIZE = (224, 224)
+BATCH_SIZE = 16
+EPOCHS = 25
 
 DATASET_PATH = "./data/fingerprint"
 SAVE_PATH = "./results"
@@ -101,7 +101,7 @@ def train_and_evaluate(model_fn, model_name):
     base_model = model_fn(
         weights='imagenet',
         include_top=False,
-        input_shape=(160, 160, 3)
+        input_shape=(224, 224, 3)  # Updated to match IMG_SIZE
     )
 
     for layer in base_model.layers:
@@ -109,7 +109,8 @@ def train_and_evaluate(model_fn, model_name):
 
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    x = Dense(64, activation='relu')(x)
+    x = Dense(128, activation='relu')(x)  # Slightly larger
+    x = tf.keras.layers.Dropout(0.3)(x)   # Simple dropout
     output = Dense(output_units, activation=activation)(x)
 
     model = Model(base_model.input, output)
