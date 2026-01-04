@@ -11,17 +11,7 @@ if [ ! -d "venv" ]; then
 fi
 
 # Activate virtual environment
-# Check if we're on Windows (Git Bash/MINGW) or Linux/Mac
-if [ -f "venv/Scripts/activate" ]; then
-    # Windows path
-    source venv/Scripts/activate
-elif [ -f "venv/bin/activate" ]; then
-    # Linux/Mac path  
-    source venv/bin/activate
-else
-    echo "❌ Activation script not found in venv/Scripts or venv/bin"
-    exit 1
-fi
+source venv/bin/activate
 
 echo "✅ Environment activated"
 echo ""

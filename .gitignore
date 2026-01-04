@@ -231,3 +231,4 @@ scratch/
 test_*.py
 debug_*.py
 temp_*.py
+results_face
