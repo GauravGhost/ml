@@ -156,12 +156,12 @@ install_requirements() {
     
     if [ -f "requirements.txt" ]; then
         print_status "Installing from requirements.txt..."
-        if pip install -r requirements.txt; then
+        if pip install --only-binary=all -r requirements.txt; then
             print_success "All packages installed successfully"
         else
             print_warning "Some packages failed to install. Trying with latest versions..."
             print_status "Installing essential packages with latest versions..."
-            pip install tensorflow numpy pandas scikit-learn matplotlib seaborn Pillow opencv-python tqdm jupyter ipykernel
+            pip install --only-binary=all tensorflow numpy pandas scikit-learn matplotlib seaborn Pillow opencv-python tqdm jupyter ipykernel
             
             if [ $? -eq 0 ]; then
                 print_success "Essential packages installed successfully"
@@ -172,7 +172,7 @@ install_requirements() {
         fi
     else
         print_error "requirements.txt not found. Installing basic packages..."
-        pip install tensorflow numpy pandas scikit-learn matplotlib Pillow
+        pip install --only-binary=all tensorflow numpy pandas scikit-learn matplotlib Pillow
     fi
 }
 
@@ -296,15 +296,6 @@ echo "📊 ANALYSIS TOOLS:"
 echo "  python utils/analyze_results.py            # Compare all model results"
 echo "  cat DATA_SETUP.md                         # View dataset setup guide"
 echo ""
-echo "🚀 ENHANCED FEATURES:"
-echo "  • Advanced GPU detection (Mac Metal/CUDA/CPU fallback)"
-echo "  • Face model optimized for 90%+ accuracy target"
-echo "  • Two-phase training with transfer learning + fine-tuning"
-echo "  • Dynamic class weighting for imbalanced datasets"
-echo "  • Cross-platform compatibility (Mac/Windows/Linux)"
-echo "  • Absolute path resolution - works from any directory"
-echo "  • Enhanced data augmentation and regularization"
-echo ""
 echo "📁 Directory structure:"
 echo "  data/face/         - Face dataset (live vs spoof attacks)"
 echo "  data/fingerprint/  - Fingerprint dataset (genuine vs altered)"
@@ -312,148 +303,10 @@ echo "  data/iris/         - Iris dataset (real vs synthetic)"
 echo "  results/           - Training results and model files"
 echo "  utils/gpu_utils.py - Cross-platform GPU detection"
 echo ""
-echo "💡 TIPS:"
-echo "  • Face model includes enhanced architecture for anti-spoofing"
-echo "  • Check DATA_SETUP.md for detailed dataset organization"
-echo "  • GPU acceleration automatically configured if available"
-echo "  • Compatible with TensorFlow 2.15.0 + TensorFlow-Metal"
-echo ""
 echo "To deactivate the environment, run: deactivate"
 EOF
-
     chmod +x activate_env.sh
     print_success "Activation script created: activate_env.sh"
-}
-
-# Create sample dataset structure info
-create_dataset_info() {
-    print_status "Creating dataset structure information..."
-    
-    cat > DATA_SETUP.md << 'EOF'
-# Dataset Setup Instructions for Biometric Classification
-
-## Required Directory Structure
-
-### Face Classification Dataset
-```
-data/face/
-├── live_subject_images/     # Real face images
-│   ├── person1_image1.jpg
-│   ├── person2_image1.jpg
-│   └── ...
-├── bobblehead_images/       # Bobblehead attack images
-│   ├── DSLR/
-│   ├── IPHONE14/
-│   └── SAMSUNG_S9/
-├── Full_cloth_mask_images/  # Cloth mask attack images
-│   └── ...
-└── [other_attack_types]/    # Various spoof attacks
-```
-
-### Fingerprint Classification Dataset
-```
-data/fingerprint/
-├── Real/               # Genuine fingerprints
-│   ├── image1.jpg
-│   ├── image2.png
-│   └── ...
-├── Altered/            # Altered fingerprints
-│   ├── image1.jpg
-│   └── ...
-└── SOCOFing/          # SOCOFING dataset
-    └── ...
-```
-
-### Iris Classification Dataset
-```
-data/iris/
-├── genuine/            # Real iris images
-│   ├── image1.jpg
-│   ├── image2.png
-│   └── ...
-└── spoofed/            # Fake iris images
-    ├── image1.jpg
-    └── ...
-```
-
-## Supported Image Formats
-- JPEG (.jpg, .jpeg)
-- PNG (.png)
-- BMP (.bmp)
-- TIFF (.tiff, .tif)
-
-## Dataset Guidelines
-
-1. **Balanced Classes**: Try to have roughly equal numbers of images in each class
-2. **Image Quality**: Use clear, well-lit images for best results
-3. **Consistent Naming**: Use descriptive folder names
-4. **Minimum Size**: At least 100 images per class recommended for good performance
-5. **Image Size**: Images will be automatically resized to 224x224 pixels
-
-## Training Commands
-
-### Face Anti-Spoofing (Live vs Spoof Detection)
-```bash
-# Train all 6 models with enhanced architecture for 90%+ accuracy
-python main.py -c face -a train
-
-# Analyze results and get detailed performance report
-python main.py -c face -a analyze
-
-# Use the best trained model for predictions
-python main.py -c face -a use
-```
-
-### Fingerprint Classification (Genuine vs Fake)
-```bash
-# Train all models
-python main.py -c fingerprint -a train
-
-# Analyze results
-python main.py -c fingerprint -a analyze
-
-# Use trained models
-python main.py -c fingerprint -a use
-```
-
-### Iris Recognition (Real vs Synthetic)
-```bash
-# Train all models
-python main.py -c iris -a train
-
-# Analyze results
-python main.py -c iris -a analyze
-
-# Use trained models
-python main.py -c iris -a use
-```
-
-## GPU Acceleration
-
-The system automatically detects and configures GPU acceleration:
-- **Mac (Apple Silicon)**: Uses Metal Performance Shaders
-- **Windows/Linux**: Uses NVIDIA CUDA (if available)
-- **Fallback**: Uses CPU if GPU not available
-
-## Performance Optimization
-
-For **90%+ accuracy** (especially face classification):
-- Enhanced data augmentation (rotation, brightness, zoom)
-- Two-phase training (transfer learning + fine-tuning)
-- Dynamic class weighting for imbalanced datasets
-- Advanced callbacks (early stopping, learning rate scheduling)
-- Optimized architecture with batch normalization and dropout
-
-## Troubleshooting
-
-- **"No images found"**: Check that images are in subdirectories, not directly in the main folder
-- **"Out of memory"**: Reduce BATCH_SIZE in the classifier files
-- **"Slow training"**: Ensure GPU drivers are installed (NVIDIA for Windows/Linux, TensorFlow-Metal for Mac)
-- **"Path not found"**: The system now uses absolute paths, should work from any directory
-- **"TensorFlow errors"**: Compatible with TensorFlow 2.15.0, check requirements.txt
-EOF
-
-    print_success "Dataset setup guide created: DATA_SETUP.md"
 }
 
 # Main setup function
@@ -474,19 +327,6 @@ main() {
     
     echo
     print_success "🎉 Setup completed successfully!"
-    echo
-    echo "🔥 Next Steps:"
-    echo "1. Place your dataset in data/fingerprint/ following the structure in DATA_SETUP.md"
-    echo "2. Activate the environment: source activate_env.sh"
-    echo "3. Run training: python fingerprint_classifier.py"
-    echo
-    echo "💡 Useful commands:"
-    echo "  ./activate_env.sh                          # Activate environment"
-    echo "  python fingerprint_classifier.py           # Train all models"
-    echo "  python analyze_results.py                 # Analyze training results"
-    echo "  python use_model.py                       # Use trained models"
-    echo
-    echo "📚 Read DATA_SETUP.md for dataset setup instructions"
 }
 
 # Check if script is being run directly
