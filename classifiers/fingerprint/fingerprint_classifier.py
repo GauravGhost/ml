@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import sys
 
 from tensorflow.keras.applications import (
     ResNet50, VGG16, InceptionV3,
@@ -16,29 +17,27 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 
-# Enable GPU if available
-print("🔧 Setting up GPU...")
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        print(f"✅ GPU enabled: {len(gpus)} GPU(s) found")
-    except RuntimeError as e:
-        print(f"❌ GPU setup error: {e}")
-else:
-    print("⚠️  No GPU found, using CPU")
+# Import centralized GPU utilities
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from utils.gpu_utils import setup_gpu_acceleration, print_gpu_setup_guidance
+
+# Setup GPU acceleration using centralized utility
+gpu_available = setup_gpu_acceleration()
+print_gpu_setup_guidance(gpu_available)
 
 # Configuration
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 16
 EPOCHS = 25
 
-DATASET_PATH = "./data/fingerprint"
-SAVE_PATH = "./results/fingerprint"
+# Fix path resolution - go up two levels from classifiers/fingerprint/ to project root
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "fingerprint")
+SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "fingerprint")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
+print(f"📁 Project root: {PROJECT_ROOT}")
 print(f"📁 Dataset path: {DATASET_PATH}")
 print(f"💾 Results will be saved to: {SAVE_PATH}")
 

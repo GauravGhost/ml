@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Fingerprint Classification Environment Setup Script
-# This script sets up the environment for local training
+# Biometric Classification Environment Setup Script
+# This script sets up the environment for Face, Fingerprint, and Iris classification training
 
 set -e  # Exit on any error
 
-echo "🚀 Setting up Fingerprint Classification Environment"
+echo "🚀 Setting up Biometric Classification Environment"
 echo "=================================================="
 
 # Colors for output
@@ -180,25 +180,50 @@ install_requirements() {
 create_directories() {
     print_status "Creating directory structure..."
     
-    # Create data directory
+    # Create data directories for all biometric types
+    mkdir -p data/face
     mkdir -p data/fingerprint
-    mkdir -p results
-    mkdir -p logs
+    mkdir -p data/iris
+    mkdir -p results/face
+    mkdir -p results/fingerprint
+    mkdir -p results/iris
+    mkdir -p utils
     
     print_success "Directory structure created:"
-    echo "  📁 data/fingerprint/  - Place your dataset here"
+    echo "  📁 data/face/        - Place your face dataset here"
+    echo "  📁 data/fingerprint/ - Place your fingerprint dataset here"
+    echo "  📁 data/iris/        - Place your iris dataset here"
     echo "  📁 results/          - Training results will be saved here"
-    echo "  📁 logs/             - Log files will be stored here"
+    echo "  📁 utils/            - Utility scripts and GPU detection"
 }
 
-# Check GPU availability (optional)
+# Check GPU availability with enhanced cross-platform detection
 check_gpu() {
     print_status "Checking GPU availability..."
     
-    if $PYTHON_CMD -c "import tensorflow as tf; print('GPU available:', len(tf.config.experimental.list_physical_devices('GPU')) > 0)" 2>/dev/null; then
-        print_success "GPU check completed"
+    # Test our enhanced GPU detection
+    if $PYTHON_CMD -c "
+import sys, os
+sys.path.append(os.path.join(os.getcwd(), 'utils'))
+try:
+    from gpu_utils import setup_gpu_acceleration, get_device_info
+    gpu_available = setup_gpu_acceleration()
+    devices = get_device_info()
+    if gpu_available:
+        print('✅ GPU acceleration is available and configured')
+    else:
+        print('⚠️ GPU not available, will use CPU (slower but works)')
+except Exception as e:
+    import tensorflow as tf
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        print(f'✅ Found {len(gpus)} GPU device(s)')
+    else:
+        print('⚠️ No GPU detected, will use CPU')
+" 2>/dev/null; then
+        print_success "GPU detection completed"
     else
-        print_warning "Could not check GPU availability. TensorFlow may not be installed yet."
+        print_warning "Could not check GPU availability. Will be checked during first training run."
     fi
 }
 
@@ -208,10 +233,10 @@ create_activation_script() {
     
     cat > activate_env.sh << 'EOF'
 #!/bin/bash
-# Activation script for fingerprint classification environment
+# Activation script for biometric classification environment
 
-echo "🔥 Activating Fingerprint Classification Environment"
-echo "=================================================="
+echo "🔥 Activating Biometric Classification Environment"
+echo "=============================================="
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
@@ -219,19 +244,79 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Activate virtual environment
-source venv/bin/activate
+# Activate virtual environment based on platform
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+    echo "🪟 Windows platform detected"
+    source venv/Scripts/activate
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "🍎 macOS platform detected"
+    source venv/bin/activate
+else
+    echo "🐧 Linux platform detected"
+    source venv/bin/activate
+fi
 
 echo "✅ Environment activated"
+
+# Check GPU availability using our enhanced GPU detection
+echo ""
+echo "🔍 Checking GPU availability..."
+python -c "
+try:
+    from utils.gpu_utils import setup_gpu, get_gpu_info
+    setup_gpu()
+    gpu_info = get_gpu_info()
+    print(f'GPU Status: {gpu_info}')
+except ImportError:
+    print('GPU utilities will be available after first training run')
+except Exception as e:
+    print(f'GPU check: {str(e)}')
+" 2>/dev/null || echo "GPU check will be performed during training"
+
 echo ""
 echo "📋 Available commands:"
-echo "  python fingerprint_classifier.py           # Train all models"
-echo "  python analyze_results.py                 # Analyze training results"
-echo "  python use_model.py                       # Use trained models"
+echo ""
+echo "📸 FACE ANTI-SPOOFING (Enhanced for 90%+ accuracy):"
+echo "  python main.py -c face -a train            # Train face classification models"
+echo "  python main.py -c face -a analyze          # Analyze face training results"
+echo "  python main.py -c face -a use              # Use trained face models"
+echo "  cd classifiers/face && python face_classifier.py   # Direct enhanced training"
+echo ""
+echo "👆 FINGERPRINT CLASSIFICATION:"
+echo "  python main.py -c fingerprint -a train     # Train fingerprint classification models" 
+echo "  python main.py -c fingerprint -a analyze   # Analyze fingerprint training results"
+echo "  python main.py -c fingerprint -a use       # Use trained fingerprint models"
+echo ""
+echo "👁️  IRIS RECOGNITION:"
+echo "  python main.py -c iris -a train            # Train iris classification models"
+echo "  python main.py -c iris -a analyze          # Analyze iris training results"
+echo "  python main.py -c iris -a use              # Use trained iris models"
+echo ""
+echo "📊 ANALYSIS TOOLS:"
+echo "  python utils/analyze_results.py            # Compare all model results"
+echo "  cat DATA_SETUP.md                         # View dataset setup guide"
+echo ""
+echo "🚀 ENHANCED FEATURES:"
+echo "  • Advanced GPU detection (Mac Metal/CUDA/CPU fallback)"
+echo "  • Face model optimized for 90%+ accuracy target"
+echo "  • Two-phase training with transfer learning + fine-tuning"
+echo "  • Dynamic class weighting for imbalanced datasets"
+echo "  • Cross-platform compatibility (Mac/Windows/Linux)"
+echo "  • Absolute path resolution - works from any directory"
+echo "  • Enhanced data augmentation and regularization"
 echo ""
 echo "📁 Directory structure:"
-echo "  data/fingerprint/  - Place your dataset here"
-echo "  results/           - Results will be saved here"
+echo "  data/face/         - Face dataset (live vs spoof attacks)"
+echo "  data/fingerprint/  - Fingerprint dataset (genuine vs altered)"
+echo "  data/iris/         - Iris dataset (real vs synthetic)"
+echo "  results/           - Training results and model files"
+echo "  utils/gpu_utils.py - Cross-platform GPU detection"
+echo ""
+echo "💡 TIPS:"
+echo "  • Face model includes enhanced architecture for anti-spoofing"
+echo "  • Check DATA_SETUP.md for detailed dataset organization"
+echo "  • GPU acceleration automatically configured if available"
+echo "  • Compatible with TensorFlow 2.15.0 + TensorFlow-Metal"
 echo ""
 echo "To deactivate the environment, run: deactivate"
 EOF
@@ -245,21 +330,49 @@ create_dataset_info() {
     print_status "Creating dataset structure information..."
     
     cat > DATA_SETUP.md << 'EOF'
-# Dataset Setup Instructions
+# Dataset Setup Instructions for Biometric Classification
 
 ## Required Directory Structure
 
-Your dataset should be organized as follows:
+### Face Classification Dataset
+```
+data/face/
+├── live_subject_images/     # Real face images
+│   ├── person1_image1.jpg
+│   ├── person2_image1.jpg
+│   └── ...
+├── bobblehead_images/       # Bobblehead attack images
+│   ├── DSLR/
+│   ├── IPHONE14/
+│   └── SAMSUNG_S9/
+├── Full_cloth_mask_images/  # Cloth mask attack images
+│   └── ...
+└── [other_attack_types]/    # Various spoof attacks
+```
 
+### Fingerprint Classification Dataset
 ```
 data/fingerprint/
-├── class1/          (e.g., "genuine" or "real")
+├── Real/               # Genuine fingerprints
 │   ├── image1.jpg
 │   ├── image2.png
 │   └── ...
-└── class2/          (e.g., "fake" or "spoofed")
-    ├── image3.jpg
-    ├── image4.png
+├── Altered/            # Altered fingerprints
+│   ├── image1.jpg
+│   └── ...
+└── SOCOFing/          # SOCOFING dataset
+    └── ...
+```
+
+### Iris Classification Dataset
+```
+data/iris/
+├── genuine/            # Real iris images
+│   ├── image1.jpg
+│   ├── image2.png
+│   └── ...
+└── spoofed/            # Fake iris images
+    ├── image1.jpg
     └── ...
 ```
 
@@ -273,28 +386,71 @@ data/fingerprint/
 
 1. **Balanced Classes**: Try to have roughly equal numbers of images in each class
 2. **Image Quality**: Use clear, well-lit images for best results
-3. **Consistent Naming**: Use descriptive folder names (e.g., "real_fingerprints", "fake_fingerprints")
-4. **Minimum Size**: At least 100 images per class recommended
-5. **Image Size**: Images will be automatically resized, but try to use consistent aspect ratios
+3. **Consistent Naming**: Use descriptive folder names
+4. **Minimum Size**: At least 100 images per class recommended for good performance
+5. **Image Size**: Images will be automatically resized to 224x224 pixels
 
-## Example Commands
+## Training Commands
 
+### Face Anti-Spoofing (Live vs Spoof Detection)
 ```bash
-# Train all 6 models (ResNet50, VGG16, InceptionV3, DenseNet121, EfficientNetB0, Xception)
-python fingerprint_classifier.py
+# Train all 6 models with enhanced architecture for 90%+ accuracy
+python main.py -c face -a train
 
-# After training, analyze results and get performance report
-python analyze_results.py
+# Analyze results and get detailed performance report
+python main.py -c face -a analyze
 
 # Use the best trained model for predictions
-python use_model.py
+python main.py -c face -a use
 ```
+
+### Fingerprint Classification (Genuine vs Fake)
+```bash
+# Train all models
+python main.py -c fingerprint -a train
+
+# Analyze results
+python main.py -c fingerprint -a analyze
+
+# Use trained models
+python main.py -c fingerprint -a use
+```
+
+### Iris Recognition (Real vs Synthetic)
+```bash
+# Train all models
+python main.py -c iris -a train
+
+# Analyze results
+python main.py -c iris -a analyze
+
+# Use trained models
+python main.py -c iris -a use
+```
+
+## GPU Acceleration
+
+The system automatically detects and configures GPU acceleration:
+- **Mac (Apple Silicon)**: Uses Metal Performance Shaders
+- **Windows/Linux**: Uses NVIDIA CUDA (if available)
+- **Fallback**: Uses CPU if GPU not available
+
+## Performance Optimization
+
+For **90%+ accuracy** (especially face classification):
+- Enhanced data augmentation (rotation, brightness, zoom)
+- Two-phase training (transfer learning + fine-tuning)
+- Dynamic class weighting for imbalanced datasets
+- Advanced callbacks (early stopping, learning rate scheduling)
+- Optimized architecture with batch normalization and dropout
 
 ## Troubleshooting
 
 - **"No images found"**: Check that images are in subdirectories, not directly in the main folder
-- **"Out of memory"**: Reduce BATCH_SIZE or IMG_SIZE in fingerprint_classifier.py
-- **"Slow training"**: Enable GPU or reduce EPOCHS in fingerprint_classifier.py
+- **"Out of memory"**: Reduce BATCH_SIZE in the classifier files
+- **"Slow training"**: Ensure GPU drivers are installed (NVIDIA for Windows/Linux, TensorFlow-Metal for Mac)
+- **"Path not found"**: The system now uses absolute paths, should work from any directory
+- **"TensorFlow errors"**: Compatible with TensorFlow 2.15.0, check requirements.txt
 EOF
 
     print_success "Dataset setup guide created: DATA_SETUP.md"
