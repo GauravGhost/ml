@@ -1,20 +1,3 @@
-# 🔬 Biometric Classification Project
-
-A comprehensive machine learning project that trains and compares different CNN models for biometric classification including fingerprint, face, and iris recognition. **Works on macOS, Linux, and Windows!**
-
-## 🎯 Features
-
-- **3 Biometric Classifiers**: Fingerprint, Face, and Iris recognition
-- **Multiple CNN Models**: ResNet50, VGG16, InceptionV3, DenseNet121, EfficientNetB0, Xception
-- **Cross-Platform**: Native support for macOS, Linux, and Windows
-- **Multiple Setup Options**: Bash, Batch files, PowerShell scripts
-- **Automatic Detection**: Binary/Multi-class classification auto-detected from dataset
-- **GPU Support**: Automatically uses GPU when available
-- **Comprehensive Analysis**: Detailed performance analysis and visualizations for each classifier
-- **Easy Deployment**: Simple model usage scripts for predictions
-- **Modular Structure**: Organized into separate classifier modules
-- **Unified Interface**: Single main.py script to run everything
-
 ## 📁 Project Structure
 
 ```
@@ -41,7 +24,6 @@ ml/
 │   ├── face/
 │   └── iris/
 ├── setup.sh                       # 🛠️ Cross-platform setup
-└── activate_env.sh               # 🔥 Cross-platform activation
 ```
 
 ## 🚀 Quick Start
@@ -58,20 +40,21 @@ ml/
 source activate_env.sh                # Activate environment
 
 # Run specific classifiers
-python main.py -c fingerprint -a train    # Train fingerprint classifier
-python main.py -c face -a train          # Train face classifier  
-python main.py -c iris -a train          # Train iris classifier
+# All actions use the same pattern
+python main.py -c fingerprint -a train
+python main.py -c fingerprint -a use  
+python main.py -c fingerprint -a analyze
 
-# Use trained models
-python main.py -c fingerprint -a use     # Use fingerprint model
-python main.py -c face -a use           # Use face model
-python main.py -c iris -a use           # Use iris model
+python main.py -c face -a train
+python main.py -c face -a use
+python main.py -c face -a analyze
 
-# Analyze results
-python main.py -a analyze               # Analyze all available results
-python main.py -c fingerprint -a analyze # Analyze specific classifier
-python analyze.py                       # Quick analysis (all classifiers)
-python analyze.py -c fingerprint        # Quick analysis (specific)
+python main.py -c iris -a train
+python main.py -c iris -a use
+python main.py -c iris -a analyze
+
+# Or analyze all at once
+python main.py -a analyze
 ```
 
 ### 🪟 Windows
@@ -82,7 +65,6 @@ python analyze.py -c fingerprint        # Quick analysis (specific)
 2. Open Git Bash in project directory:
 ```bash
 ./setup.sh                    # Cross-platform setup
-./activate_env.sh             # Cross-platform activation
 python fingerprint_classifier.py
 ```
 
@@ -169,14 +151,6 @@ IMG_SIZE = (160, 160)    # Image size
 BATCH_SIZE = 32          # Batch size  
 EPOCHS = 10              # Training epochs
 ```
-
-## 🎯 Typical Results
-
-Based on training, you can expect:
-- **InceptionV3**: ~99% accuracy (usually best)
-- **Xception**: ~99% accuracy  
-- **VGG16**: ~98% accuracy
-- Other models: 60-98% depending on data
 
 ## 🔧 Troubleshooting
 
