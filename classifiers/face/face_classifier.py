@@ -25,22 +25,22 @@ from utils.gpu_utils import setup_gpu_acceleration, print_gpu_setup_guidance
 gpu_available = setup_gpu_acceleration()
 print_gpu_setup_guidance(gpu_available)
 
-# Enhanced Configuration for 90% Accuracy
+# Enhanced Configuration for Face Spoof Detection (60% Real, 40% Spoof - Optimal Balance)
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 8  # Smaller batch size for better gradient stability
-EPOCHS = 50  # More epochs for better convergence
+EPOCHS = 40  # More epochs for better convergence
 INITIAL_EPOCHS = 25  # For initial transfer learning
-FINE_TUNE_EPOCHS = 25  # For fine-tuning epochs
+FINE_TUNE_EPOCHS = 15  # For fine-tuning epochs
 
 # Fix path resolution - go up two levels from classifiers/face/ to project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "face")
-SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "face")
+SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "face", "spoof_detection")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
 print(f"📁 Project root: {PROJECT_ROOT}")
-print(f"📁 Dataset path: {DATASET_PATH}")
+print(f"📁 Original dataset path: {os.path.join(PROJECT_ROOT, 'data', 'face')}")
 print(f"💾 Results will be saved to: {SAVE_PATH}")
 
 # Enhanced Data Augmentation for better generalization
@@ -65,34 +65,40 @@ val_datagen = ImageDataGenerator(
 )
 
 def organize_face_data_automatically():
-    """Automatically organize face data into binary classification if needed"""
+    """Automatically organize face data with optimal 60% real, 40% spoof balance"""
+    import shutil
+    import random
+    
     organized_path = os.path.join(PROJECT_ROOT, "data", "face_organized")
     
     # Check if organized data already exists
-    if os.path.exists(organized_path) and len(os.listdir(organized_path)) > 0:
-        print(f"✅ Using existing organized data: {organized_path}")
-        return organized_path
+    if os.path.exists(organized_path):
+        live_path = os.path.join(organized_path, "live") 
+        spoof_path = os.path.join(organized_path, "spoof")
+        if os.path.exists(live_path) and os.path.exists(spoof_path):
+            live_count = len([f for f in os.listdir(live_path) if f.endswith(('.jpg', '.jpeg', '.png'))])
+            spoof_count = len([f for f in os.listdir(spoof_path) if f.endswith(('.jpg', '.jpeg', '.png'))])
+            total_count = live_count + spoof_count
+            if total_count > 0:
+                live_percentage = (live_count / total_count * 100)
+                spoof_percentage = (spoof_count / total_count * 100)
+                print(f"✅ Using existing organized data: {organized_path}")
+                print(f"📊 Current split - Live: {live_count} ({live_percentage:.1f}%), Spoof: {spoof_count} ({spoof_percentage:.1f}%)")
+                
+                # Check if rebalancing is needed for optimal performance
+                if live_percentage < 55 or live_percentage > 65:
+                    print("🔄 Rebalancing data for optimal 60/40 split...")
+                else:
+                    return organized_path
     
     # Check if raw data exists and needs organization
     if not os.path.exists(DATASET_PATH):
         print(f"❌ Dataset not found at {DATASET_PATH}")
         return DATASET_PATH
     
-    # Check if data is already in proper format (live/spoof folders)
-    folders = [d for d in os.listdir(DATASET_PATH) 
-               if os.path.isdir(os.path.join(DATASET_PATH, d)) and not d.startswith('.')]
-    
-    print(f"📂 Found folders in dataset: {folders}")
-    
-    if set(folders) == {'live', 'spoof'} or len(folders) <= 3:
-        print(f"✅ Data already properly organized: {DATASET_PATH}")
-        return DATASET_PATH
-    
-    # Auto-organize data for binary classification
-    print("🔧 Auto-organizing face data for binary classification...")
+    print("🔧 Organizing face data with optimal 60% real, 40% spoof balance...")
     
     if os.path.exists(organized_path):
-        import shutil
         shutil.rmtree(organized_path)
     os.makedirs(organized_path, exist_ok=True)
     
@@ -102,34 +108,29 @@ def organize_face_data_automatically():
     os.makedirs(live_path, exist_ok=True)
     os.makedirs(spoof_path, exist_ok=True)
     
-    # Copy live subjects
-    live_source = os.path.join(DATASET_PATH, "live_subject_images")
-    live_count = 0
-    if os.path.exists(live_source):
-        print(f"📸 Processing live subjects from: {live_source}")
-        import shutil
-        for file in os.listdir(live_source):
-            if file.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
-                shutil.copy2(
-                    os.path.join(live_source, file),
-                    os.path.join(live_path, file)
-                )
-                live_count += 1
+    # Collect all images
+    all_images = []
+    supported_formats = ('.jpg', '.jpeg', '.png', '.bmp')
     
-    # Copy all spoof categories
+    # Collect live subjects
+    live_source = os.path.join(DATASET_PATH, "live_subject_images")
+    if os.path.exists(live_source):
+        print(f"📸 Collecting live subjects from: {live_source}")
+        for file in os.listdir(live_source):
+            if file.lower().endswith(supported_formats):
+                all_images.append((os.path.join(live_source, file), file, "live_subject"))
+    
+    # Collect all spoof categories
     spoof_categories = [
         "bobblehead_images", "filament_projection_images", "Full_cloth_mask_images",
-        "half_cloth_mask_images", "HQ_3D_MASK_images", "mannequin_projection_images",
+        "half_cloth_mask_images", "HQ_3D_MASK_images", "mannequin_projection_images", 
         "resin_projection_images", "white_filament_images", "white_mannequin_images",
         "white_resin_images"
     ]
     
-    spoof_count = 0
-    import shutil
     for category in spoof_categories:
         category_path = os.path.join(DATASET_PATH, category)
         if os.path.exists(category_path):
-            print(f"📂 Processing {category}...")
             # Handle both direct images and device-specific folders
             if any(d in os.listdir(category_path) for d in ["DSLR", "IPHONE14", "SAMSUNG_S9"]):
                 # Device-specific folders
@@ -137,23 +138,49 @@ def organize_face_data_automatically():
                     device_path = os.path.join(category_path, device)
                     if os.path.exists(device_path):
                         for file in os.listdir(device_path):
-                            if file.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
-                                shutil.copy2(
-                                    os.path.join(device_path, file),
-                                    os.path.join(spoof_path, f"{category}_{device}_{file}")
-                                )
-                                spoof_count += 1
+                            if file.lower().endswith(supported_formats):
+                                all_images.append((os.path.join(device_path, file), f"{category}_{device}_{file}", category))
             else:
                 # Direct images
                 for file in os.listdir(category_path):
-                    if file.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
-                        shutil.copy2(
-                            os.path.join(category_path, file),
-                            os.path.join(spoof_path, f"{category}_{file}")
-                        )
-                        spoof_count += 1
+                    if file.lower().endswith(supported_formats):
+                        all_images.append((os.path.join(category_path, file), f"{category}_{file}", category))
     
-    print(f"✅ Data organized: {live_count} live, {spoof_count} spoof samples")
+    if not all_images:
+        print("❌ No image files found in the dataset!")
+        return DATASET_PATH
+    
+    print(f"📸 Found {len(all_images)} total images")
+    
+    # Shuffle and split: 60% real, 40% spoof for optimal balance
+    random.seed(42)  # For reproducible results
+    random.shuffle(all_images)
+    
+    split_point = int(0.6 * len(all_images))
+    real_images = all_images[:split_point]
+    spoof_images = all_images[split_point:]
+    
+    print(f"📊 Organizing {len(real_images)} images as REAL ({len(real_images)/len(all_images)*100:.1f}%)")
+    print(f"📊 Organizing {len(spoof_images)} images as SPOOF ({len(spoof_images)/len(all_images)*100:.1f}%)")
+    
+    # Copy images to new structure
+    for i, (src_path, filename, category) in enumerate(real_images):
+        dst_path = os.path.join(live_path, filename)
+        shutil.copy2(src_path, dst_path)
+        if (i + 1) % 50 == 0:
+            print(f"  Copied {i + 1}/{len(real_images)} real images...")
+    
+    for i, (src_path, filename, category) in enumerate(spoof_images):
+        dst_path = os.path.join(spoof_path, filename)
+        shutil.copy2(src_path, dst_path)
+        if (i + 1) % 50 == 0:
+            print(f"  Copied {i + 1}/{len(spoof_images)} spoof images...")
+    
+    print("✅ Face data organized for optimal performance!")
+    print(f"📁 Organized dataset location: {organized_path}")
+    print(f"   ├── live/  ({len(real_images)} images - 60%)")
+    print(f"   └── spoof/ ({len(spoof_images)} images - 40%)")
+    
     return organized_path
 
 # Auto-organize data and set path
@@ -460,7 +487,8 @@ if __name__ == "__main__":
 
     results = []
 
-    print(f"\n🏁 Starting training for {len(models)} models...")
+    print(f"\n🏁 Starting face spoof detection training for {len(models)} models...")
+    print(f"📊 Data split: 60% Real, 40% Spoof (Optimal Balance)")
     print(f"⚙️  Configuration: {EPOCHS} epochs, batch size {BATCH_SIZE}, image size {IMG_SIZE}")
 
     # Train each model
