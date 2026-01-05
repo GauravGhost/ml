@@ -97,6 +97,17 @@ def train_and_evaluate(model_fn, model_name):
     """Train and evaluate a model - exact copy of original Colab function"""
     print(f"\n🚀 Training {model_name}")
     
+    # Ensure save directory exists
+    print(f"📁 Ensuring save directory exists: {SAVE_PATH}")
+    os.makedirs(SAVE_PATH, exist_ok=True)
+    
+    # Verify directory was created
+    if not os.path.exists(SAVE_PATH):
+        print(f"❌ Failed to create directory: {SAVE_PATH}")
+        raise FileNotFoundError(f"Cannot create save directory: {SAVE_PATH}")
+    else:
+        print(f"✅ Save directory confirmed: {SAVE_PATH}")
+    
     base_model = model_fn(
         weights='imagenet',
         include_top=False,
@@ -167,35 +178,50 @@ def train_and_evaluate(model_fn, model_name):
 
     print(f"📈 {model_name} - AUC: {auc:.4f}")
 
+    # Ensure save directory exists before saving
+    os.makedirs(SAVE_PATH, exist_ok=True)
+    
     # Save Confusion Matrix
-    plt.figure(figsize=(8, 6))
-    plt.imshow(cm, cmap='Blues')
-    plt.title(f"{model_name} Confusion Matrix")
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.colorbar()
-    
-    # Add text annotations
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            plt.text(j, i, str(cm[i, j]), ha='center', va='center')
-    
-    plt.savefig(f"{SAVE_PATH}/{model_name}_confusion_matrix.png", dpi=300, bbox_inches='tight')
-    plt.close()
+    try:
+        plt.figure(figsize=(8, 6))
+        plt.imshow(cm, cmap='Blues')
+        plt.title(f"{model_name} Confusion Matrix")
+        plt.xlabel("Predicted")
+        plt.ylabel("Actual")
+        plt.colorbar()
+        
+        # Add text annotations
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                plt.text(j, i, str(cm[i, j]), ha='center', va='center')
+        
+        confusion_matrix_path = f"{SAVE_PATH}/{model_name}_confusion_matrix.png"
+        print(f"💾 Saving confusion matrix to: {confusion_matrix_path}")
+        plt.savefig(confusion_matrix_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    except Exception as e:
+        print(f"⚠️  Warning: Could not save confusion matrix for {model_name}: {e}")
+        plt.close()
 
     # ROC Curve
     if class_mode == 'binary':
-        fpr, tpr, _ = roc_curve(y_true, y_prob)
-        plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, label=f"AUC = {auc:.4f}")
-        plt.plot([0, 1], [0, 1], '--', color='gray')
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title(f"{model_name} ROC Curve")
-        plt.legend()
-        plt.grid(alpha=0.3)
-        plt.savefig(f"{SAVE_PATH}/{model_name}_roc_curve.png", dpi=300, bbox_inches='tight')
-        plt.close()
+        try:
+            fpr, tpr, _ = roc_curve(y_true, y_prob)
+            plt.figure(figsize=(8, 6))
+            plt.plot(fpr, tpr, label=f"AUC = {auc:.4f}")
+            plt.plot([0, 1], [0, 1], '--', color='gray')
+            plt.xlabel("False Positive Rate")
+            plt.ylabel("True Positive Rate")
+            plt.title(f"{model_name} ROC Curve")
+            plt.legend()
+            plt.grid(alpha=0.3)
+            roc_curve_path = f"{SAVE_PATH}/{model_name}_roc_curve.png"
+            print(f"💾 Saving ROC curve to: {roc_curve_path}")
+            plt.savefig(roc_curve_path, dpi=300, bbox_inches='tight')
+            plt.close()
+        except Exception as e:
+            print(f"⚠️  Warning: Could not save ROC curve for {model_name}: {e}")
+            plt.close()
     else:
         plt.figure(figsize=(10, 8))
         colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
@@ -252,8 +278,13 @@ def train_and_evaluate(model_fn, model_name):
     plt.close()
 
     # Save model
-    model.save(f"{SAVE_PATH}/{model_name}.h5")
-    print(f"💾 {model_name} saved to {SAVE_PATH}/{model_name}.h5")
+    try:
+        model_path = f"{SAVE_PATH}/{model_name}.h5"
+        print(f"💾 Saving model to: {model_path}")
+        model.save(model_path)
+        print(f"✅ {model_name} saved successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not save model {model_name}: {e}")
 
     # Clear memory
     del model

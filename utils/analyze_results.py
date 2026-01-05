@@ -17,9 +17,15 @@ import argparse
 def load_and_analyze_results(classifier_type="fingerprint"):
     """Load and analyze model comparison results for specified classifier type"""
     
-    # Unified result path structure for all classifiers
-    results_path = f"./results/{classifier_type}"
-    csv_path = os.path.join(results_path, "model_comparison_results.csv")
+    # Handle different path structures for different classifiers
+    if classifier_type == "face":
+        # Face classifier saves to spoof_detection subdirectory
+        results_path = f"./results/{classifier_type}/spoof_detection"
+        csv_path = os.path.join(results_path, "model_comparison_results.csv")
+    else:
+        # Other classifiers use the base results directory
+        results_path = f"./results/{classifier_type}"
+        csv_path = os.path.join(results_path, "model_comparison_results.csv")
     
     if not os.path.exists(csv_path):
         print(f"❌ Results file not found at: {csv_path}")
