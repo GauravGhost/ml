@@ -35,7 +35,7 @@ BATCH_SIZE = 16
 EPOCHS = 25
 
 DATASET_PATH = "./data/fingerprint"
-SAVE_PATH = "./results"
+SAVE_PATH = "./results/fingerprint"
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 

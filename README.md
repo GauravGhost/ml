@@ -1,4 +1,14 @@
-## 📁 Project Structure
+# Biometric Classification Suite 🔬
+
+A comprehensive machine learning suite for biometric classification supporting **Fingerprint**, **Face**, and **Iris** recognition using deep learning models.
+
+## ✨ Features
+
+- **Three Unified Classifiers**: Fingerprint, Face, and Iris recognition
+- **Auto-Detection**: Automatically detects number of classes and classification type (binary/multi-class)
+- **Multiple CNN Models**: ResNet50, VGG16, InceptionV3, DenseNet121, EfficientNetB0, Xception
+- **Comprehensive Analysis**: Detailed performance reports with visualizations
+- **Easy Usage**: Simple prediction scripts for all classifiers
 
 ```
 ml/

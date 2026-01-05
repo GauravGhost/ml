@@ -12,7 +12,7 @@ import os
 def load_best_model():
     """Load the best performing model"""
     # Based on analysis, InceptionV3 is the best model
-    model_path = "./results/InceptionV3.h5"
+    model_path = "./results/fingerprint/InceptionV3.h5"
     
     if not os.path.exists(model_path):
         print(f"❌ Model not found: {model_path}")
