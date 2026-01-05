@@ -1,28 +1,47 @@
-# 🔬 Fingerprint Classification Project
+# 🔬 Biometric Classification Project
 
-A comprehensive machine learning project that trains and compares 6 different CNN models for fingerprint classification. **Works on macOS, Linux, and Windows!**
+A comprehensive machine learning project that trains and compares different CNN models for biometric classification including fingerprint, face, and iris recognition. **Works on macOS, Linux, and Windows!**
 
 ## 🎯 Features
 
-- **6 CNN Models**: ResNet50, VGG16, InceptionV3, DenseNet121, EfficientNetB0, Xception
+- **3 Biometric Classifiers**: Fingerprint, Face, and Iris recognition
+- **Multiple CNN Models**: ResNet50, VGG16, InceptionV3, DenseNet121, EfficientNetB0, Xception
 - **Cross-Platform**: Native support for macOS, Linux, and Windows
 - **Multiple Setup Options**: Bash, Batch files, PowerShell scripts
 - **Automatic Detection**: Binary/Multi-class classification auto-detected from dataset
 - **GPU Support**: Automatically uses GPU when available
-- **Comprehensive Analysis**: Detailed performance analysis and visualizations
+- **Comprehensive Analysis**: Detailed performance analysis and visualizations for each classifier
 - **Easy Deployment**: Simple model usage scripts for predictions
+- **Modular Structure**: Organized into separate classifier modules
+- **Unified Interface**: Single main.py script to run everything
 
 ## 📁 Project Structure
 
 ```
 ml/
-├── fingerprint_classifier.py    # 🎯 Main training script
-├── analyze_results.py           # 📊 Results analysis & visualization
-├── use_model.py                # 🧠 Model usage demo
-├── setup.sh                    # 🛠️ Cross-platform setup (works on all systems)
-├── activate_env.sh             # 🔥 Cross-platform activation (works on all systems)
-├── data/fingerprint/           # 📂 Your dataset goes here
-└── results/                    # 💾 All outputs saved here
+├── main.py                         # 🎯 Main project runner (unified interface)
+├── classifiers/                    # 🔬 Classifier modules
+│   ├── fingerprint/               # 👆 Fingerprint classification
+│   │   ├── fingerprint_classifier.py
+│   │   └── use_model.py
+│   ├── face/                      # 👤 Face recognition
+│   │   ├── face_classifier.py
+│   │   └── use_face_model.py
+│   └── iris/                      # 👁️ Iris recognition
+│       ├── iris_classifier.py
+│       └── use_iris_model.py
+├── utils/                         # 🛠️ Shared utilities
+│   └── analyze_results.py         # 📊 Results analysis & visualization
+├── data/                          # 📂 Dataset storage
+│   ├── fingerprint/
+│   ├── face/
+│   └── iris/
+├── results/                       # 💾 All outputs saved here
+│   ├── fingerprint/
+│   ├── face/
+│   └── iris/
+├── setup.sh                       # 🛠️ Cross-platform setup
+└── activate_env.sh               # 🔥 Cross-platform activation
 ```
 
 ## 🚀 Quick Start
@@ -34,10 +53,25 @@ ml/
 ./setup.sh                    # Sets up everything automatically
 ```
 
-#### 2. Train Models
+#### 2. Train and Analyze Models
 ```bash
 source activate_env.sh                # Activate environment
-python fingerprint_classifier.py     # Train all 6 models
+
+# Run specific classifiers
+python main.py -c fingerprint -a train    # Train fingerprint classifier
+python main.py -c face -a train          # Train face classifier  
+python main.py -c iris -a train          # Train iris classifier
+
+# Use trained models
+python main.py -c fingerprint -a use     # Use fingerprint model
+python main.py -c face -a use           # Use face model
+python main.py -c iris -a use           # Use iris model
+
+# Analyze results
+python main.py -a analyze               # Analyze all available results
+python main.py -c fingerprint -a analyze # Analyze specific classifier
+python analyze.py                       # Quick analysis (all classifiers)
+python analyze.py -c fingerprint        # Quick analysis (specific)
 ```
 
 ### 🪟 Windows

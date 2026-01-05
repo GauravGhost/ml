@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Fingerprint Classification Results Analysis Script
+Biometric Classification Results Analysis Script
 Analyzes trained models performance and generates comprehensive reports
+Supports fingerprint, face, and iris recognition analysis
 """
 
 import pandas as pd
@@ -9,23 +10,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import sys
 from pathlib import Path
+import argparse
 
-def load_and_analyze_results(results_path="./results"):
-    """Load and analyze model comparison results"""
+def load_and_analyze_results(classifier_type="fingerprint", base_results_path="./results"):
+    """Load and analyze model comparison results for specified classifier type"""
     
-    # Check if results exist
+    # Construct path for specific classifier
+    results_path = os.path.join(base_results_path, classifier_type)
     csv_path = os.path.join(results_path, "model_comparison_results.csv")
+    
     if not os.path.exists(csv_path):
         print(f"❌ Results file not found at: {csv_path}")
-        print("📋 Please run the training script first to generate results")
-        return None
+        print(f"📋 Please run the {classifier_type} training script first to generate results")
+        return None, None
     
     # Load results
-    print(f"📊 Loading results from: {csv_path}")
+    print(f"📊 Loading {classifier_type} results from: {csv_path}")
     df = pd.read_csv(csv_path)
     
-    return df
+    return df, results_path
 
 def calculate_metrics(df):
     """Calculate additional performance metrics"""
@@ -43,11 +48,12 @@ def calculate_metrics(df):
     
     return df
 
-def print_performance_summary(df):
+def print_performance_summary(df, classifier_type="fingerprint"):
     """Print detailed performance summary"""
     
+    classifier_name = classifier_type.upper()
     print("\n" + "="*80)
-    print("🏆 FINGERPRINT CLASSIFICATION MODEL PERFORMANCE SUMMARY")
+    print(f"🏆 {classifier_name} CLASSIFICATION MODEL PERFORMANCE SUMMARY")
     print("="*80)
     
     # Sort by accuracy
@@ -192,13 +198,14 @@ def create_performance_visualizations(df, save_path="./results"):
     
     print(f"   ✅ Visualizations saved to {save_path}/")
 
-def generate_detailed_report(df, save_path="./results"):
+def generate_detailed_report(df, save_path="./results", classifier_type="fingerprint"):
     """Generate a detailed text report"""
     
     report_path = os.path.join(save_path, "detailed_analysis_report.txt")
+    classifier_name = classifier_type.upper()
     
     with open(report_path, 'w') as f:
-        f.write("FINGERPRINT CLASSIFICATION - DETAILED ANALYSIS REPORT\n")
+        f.write(f"{classifier_name} CLASSIFICATION - DETAILED ANALYSIS REPORT\n")
         f.write("=" * 60 + "\n\n")
         
         f.write(f"Analysis Date: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -246,38 +253,83 @@ def generate_detailed_report(df, save_path="./results"):
     
     print(f"   📄 Detailed report saved to: {report_path}")
 
-def main():
-    """Main analysis function"""
-    print("🔍 FINGERPRINT CLASSIFICATION RESULTS ANALYZER")
+def analyze_classifier_results(classifier_type="fingerprint"):
+    """Analyze results for a specific classifier type"""
+    classifier_name = classifier_type.upper()
+    print(f"🔍 {classifier_name} CLASSIFICATION RESULTS ANALYZER")
     print("="*50)
     
-    # Check if results directory exists
-    results_path = "./results"
-    if not os.path.exists(results_path):
-        print(f"❌ Results directory not found: {results_path}")
+    # Check if base results directory exists
+    base_results_path = "./results"
+    if not os.path.exists(base_results_path):
+        print(f"❌ Results directory not found: {base_results_path}")
         print("📋 Please run the training script first!")
-        return
+        return False
     
     # Load results
-    df = load_and_analyze_results(results_path)
+    df, results_path = load_and_analyze_results(classifier_type, base_results_path)
     if df is None:
-        return
+        return False
     
     # Calculate metrics
     df = calculate_metrics(df)
     
     # Print summary
-    print_performance_summary(df)
+    print_performance_summary(df, classifier_type)
     
     # Create visualizations
     create_performance_visualizations(df, results_path)
     
     # Generate report
-    generate_detailed_report(df, results_path)
+    generate_detailed_report(df, results_path, classifier_type)
     
-    print(f"\n✅ ANALYSIS COMPLETE!")
+    print(f"\n✅ {classifier_name} ANALYSIS COMPLETE!")
     print(f"📁 All analysis files saved to: {results_path}/")
-    print(f"🎯 Use the best model: {df.loc[df['Accuracy'].idxmax(), 'Model']}.h5")
+    if len(df) > 0:
+        print(f"🎯 Use the best model: {df.loc[df['Accuracy'].idxmax(), 'Model']}.h5")
+    
+    return True
+
+def analyze_all_classifiers():
+    """Analyze results for all available classifiers"""
+    print("🔍 ANALYZING ALL BIOMETRIC CLASSIFIERS")
+    print("="*50)
+    
+    classifiers = ['fingerprint', 'face', 'iris']
+    analyzed = []
+    
+    for classifier in classifiers:
+        print(f"\n{'='*20} {classifier.upper()} {'='*20}")
+        if analyze_classifier_results(classifier):
+            analyzed.append(classifier)
+        else:
+            print(f"⚠️  No results found for {classifier} classifier")
+    
+    if analyzed:
+        print(f"\n🎉 COMPLETED ANALYSIS FOR: {', '.join(analyzed)}")
+    else:
+        print("\n❌ No classifier results found to analyze")
+
+def main():
+    """Main analysis function"""
+    parser = argparse.ArgumentParser(description="Biometric Classification Results Analyzer")
+    parser.add_argument("--classifier", "-c", 
+                       choices=["fingerprint", "face", "iris", "all"], 
+                       default="all",
+                       help="Choose classifier to analyze")
+    
+    # Check if called from command line or from another script
+    if len(sys.argv) > 1:
+        args = parser.parse_args()
+        classifier = args.classifier
+    else:
+        # If called from another script without args, analyze all
+        classifier = "all"
+    
+    if classifier == "all":
+        analyze_all_classifiers()
+    else:
+        analyze_classifier_results(classifier)
 
 if __name__ == "__main__":
     main()
