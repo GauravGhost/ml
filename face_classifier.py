@@ -34,7 +34,7 @@ else:
 # Configuration
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 16
-EPOCHS = 25
+EPOCHS = 35
 
 FACE_DATA_PATH = "./data/face"
 PROCESSED_DATA_PATH = "./data/face_processed"
