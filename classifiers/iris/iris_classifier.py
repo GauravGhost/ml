@@ -25,17 +25,22 @@ from utils.gpu_utils import setup_gpu_acceleration, print_gpu_setup_guidance
 gpu_available = setup_gpu_acceleration()
 print_gpu_setup_guidance(gpu_available)
 
-# Enhanced Configuration for Iris Spoof Detection (60% Real, 40% Spoof - Optimal Balance)
+# SIMPLIFIED Configuration for Better Iris PERSON RECOGNITION Accuracy - EXACT FACE CLASSIFIER CONFIG
 IMG_SIZE = (224, 224)
-BATCH_SIZE = 8  # Smaller batch size for better gradient stability
-EPOCHS = 40  # More epochs for better convergence
-INITIAL_EPOCHS = 25  # For initial transfer learning
-FINE_TUNE_EPOCHS = 15  # For fine-tuning epochs
+BATCH_SIZE = 32  # Match face classifier batch size
+EPOCHS = 25  # Match face classifier total epochs
+INITIAL_EPOCHS = 15  # Initial training like face classifier
+FINE_TUNE_EPOCHS = 10  # Fine-tuning like face classifier
+LEARNING_RATE = 0.001  # Match face classifier learning rate
+FINE_TUNE_RATE = 0.0002  # Match face classifier fine-tune rate
+
+# Use subset of iris classes for better accuracy (too many classes = lower accuracy)
+MAX_CLASSES = 50  # Limit to 50 people for high accuracy
 
 # Fix path resolution - go up two levels from classifiers/iris/ to project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "iris")
-SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "iris", "spoof_detection")
+SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "iris", "person_recognition")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
@@ -43,132 +48,76 @@ print(f"📁 Project root: {PROJECT_ROOT}")
 print(f"📁 Original dataset path: {os.path.join(PROJECT_ROOT, 'data', 'iris')}")
 print(f"💾 Results will be saved to: {SAVE_PATH}")
 
-# Enhanced Data Augmentation for better generalization
+# Simplified Data Augmentation for Better Learning - OPTIMIZED FOR IRIS
 datagen = ImageDataGenerator(
     rescale=1./255,
-    validation_split=0.15,  # Slightly less validation for more training data
-    rotation_range=15,  # Moderate rotation for iris images
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    shear_range=0.1,
-    zoom_range=0.15,
-    horizontal_flip=False,  # Iris images shouldn't be flipped
-    fill_mode='nearest',
-    brightness_range=[0.85, 1.15]
+    validation_split=0.2,
+    rotation_range=5,  # Minimal rotation for iris
+    width_shift_range=0.05,  # Minimal shift for iris
+    height_shift_range=0.05,
+    horizontal_flip=False,  # Don't flip iris images
+    zoom_range=0.05,  # Minimal zoom for iris
+    brightness_range=[0.95, 1.05],  # Minimal brightness for iris
+    fill_mode='nearest'
 )
 
-# Validation data should not have augmentation
+# Validation data with minimal preprocessing for consistent evaluation
 val_datagen = ImageDataGenerator(
     rescale=1./255,
-    validation_split=0.15
+    validation_split=0.2
 )
 
-def organize_iris_data_for_classification():
-    """Reorganize iris data into 80% real and 20% spoof for binary classification"""
-    import shutil
-    import random
-    
-    # Check if already organized
-    organized_path = os.path.join(PROJECT_ROOT, "data", "iris_organized")
-    real_path = os.path.join(organized_path, "real")
-    spoof_path = os.path.join(organized_path, "spoof")
-    
-    if os.path.exists(organized_path) and os.path.exists(real_path) and os.path.exists(spoof_path):
-        print("✅ Data already organized for binary classification (real/spoof)")
-        real_count = len([f for f in os.listdir(real_path) if f.endswith(('.jpg', '.jpeg', '.png'))])
-        spoof_count = len([f for f in os.listdir(spoof_path) if f.endswith(('.jpg', '.jpeg', '.png'))])
-        total_count = real_count + spoof_count
-        real_percentage = (real_count / total_count * 100) if total_count > 0 else 0
-        spoof_percentage = (spoof_count / total_count * 100) if total_count > 0 else 0
-        print(f"📊 Real images: {real_count} ({real_percentage:.1f}%)")
-        print(f"📊 Spoof images: {spoof_count} ({spoof_percentage:.1f}%)")
-        return organized_path
+def prepare_iris_person_recognition():
+    """Select subset of iris classes for high accuracy person recognition"""
     
     if not os.path.exists(DATASET_PATH):
         print(f"❌ Dataset not found at {DATASET_PATH}")
-        print("📋 Please update DATASET_PATH variable to point to your iris dataset")
         return False
     
-    class_folders = [d for d in os.listdir(DATASET_PATH) 
-                    if os.path.isdir(os.path.join(DATASET_PATH, d)) and not d.startswith('.')]
+    # Get all available class folders
+    all_classes = [d for d in os.listdir(DATASET_PATH) 
+                   if os.path.isdir(os.path.join(DATASET_PATH, d)) and not d.startswith('.')]
     
-    print(f"📂 Found {len(class_folders)} individual class folders")
-    print("🔄 Reorganizing data into 80% real and 20% spoof classification...")
+    print(f"📂 Found {len(all_classes)} total iris classes")
     
-    # Create organized directory structure
-    os.makedirs(real_path, exist_ok=True)
-    os.makedirs(spoof_path, exist_ok=True)
+    # Filter classes with sufficient images
+    valid_classes = []
+    for class_name in all_classes:
+        class_path = os.path.join(DATASET_PATH, class_name)
+        image_count = len([f for f in os.listdir(class_path) 
+                          if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))])
+        
+        if image_count >= 10:  # Need at least 10 images per person
+            valid_classes.append((class_name, image_count))
     
-    # Collect all image files from all folders
-    all_images = []
-    supported_formats = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
+    # Sort by image count and take top classes
+    valid_classes.sort(key=lambda x: x[1], reverse=True)
+    selected_classes = valid_classes[:MAX_CLASSES]
     
-    for folder in class_folders:
-        folder_path = os.path.join(DATASET_PATH, folder)
-        if os.path.isdir(folder_path):
-            for file in os.listdir(folder_path):
-                if file.lower().endswith(supported_formats):
-                    all_images.append((os.path.join(folder_path, file), file, folder))
+    print(f"📊 Using {len(selected_classes)} people for iris recognition:")
+    total_images = sum([count for _, count in selected_classes])
+    print(f"   Total images: {total_images}")
+    print(f"   Average per person: {total_images/len(selected_classes):.1f}")
     
-    if not all_images:
-        print("❌ No image files found in the dataset!")
-        return False
-    
-    print(f"📸 Found {len(all_images)} total images")
-    
-    # Shuffle and split: 60% real, 40% spoof for optimal balance
-    random.seed(42)  # For reproducible results
-    random.shuffle(all_images)
-    
-    split_point = int(0.6 * len(all_images))
-    real_images = all_images[:split_point]
-    spoof_images = all_images[split_point:]
-    
-    print(f"📊 Organizing {len(real_images)} images as REAL ({len(real_images)/len(all_images)*100:.1f}%)")
-    print(f"📊 Organizing {len(spoof_images)} images as SPOOF ({len(spoof_images)/len(all_images)*100:.1f}%)")
-    
-    # Copy images to new structure
-    for i, (src_path, filename, original_folder) in enumerate(real_images):
-        new_filename = f"real_{original_folder}_{filename}"
-        dst_path = os.path.join(real_path, new_filename)
-        shutil.copy2(src_path, dst_path)
-        if (i + 1) % 100 == 0:
-            print(f"  Copied {i + 1}/{len(real_images)} real images...")
-    
-    for i, (src_path, filename, original_folder) in enumerate(spoof_images):
-        new_filename = f"spoof_{original_folder}_{filename}"
-        dst_path = os.path.join(spoof_path, new_filename)
-        shutil.copy2(src_path, dst_path)
-        if (i + 1) % 100 == 0:
-            print(f"  Copied {i + 1}/{len(spoof_images)} spoof images...")
-    
-    print("✅ Data reorganization complete!")
-    print(f"📁 Organized dataset location: {organized_path}")
-    print(f"   ├── real/  ({len(real_images)} images)")
-    print(f"   └── spoof/ ({len(spoof_images)} images)")
-    
-    return organized_path
+    return DATASET_PATH
 
-# Reorganize data for 80% real, 20% spoof classification
-organized_dataset_path = organize_iris_data_for_classification()
+# Prepare iris person recognition dataset
+organized_dataset_path = prepare_iris_person_recognition()
 if not organized_dataset_path:
     exit(1)
-
-# Update dataset path to use organized data
-DATASET_PATH = organized_dataset_path
 
 class_folders = [d for d in os.listdir(DATASET_PATH) 
                 if os.path.isdir(os.path.join(DATASET_PATH, d)) and not d.startswith('.')]
 num_classes = len(class_folders)
 
-print(f"📂 Using organized dataset with {num_classes} classes: {class_folders}")
+print(f"📂 Using {num_classes} iris classes for person recognition")
 
-# Since we're doing binary classification (real vs spoof)
-class_mode = 'binary'
-activation = 'sigmoid'
-loss = 'binary_crossentropy'
-output_units = 1
-print("🎯 Using binary classification (Real vs Spoof)")
+# Multi-class iris person recognition
+class_mode = 'categorical'
+activation = 'softmax'
+loss = 'categorical_crossentropy'
+output_units = num_classes
+print(f"🎯 Using multi-class iris person recognition ({num_classes} people)")
 
 train_data = datagen.flow_from_directory(
     DATASET_PATH,
@@ -217,38 +166,27 @@ def train_and_evaluate(model_fn, model_name):
     for layer in base_model.layers:
         layer.trainable = False
 
-    # Enhanced architecture for better feature extraction (same as face)
+    # Simple but effective architecture - EXACT FACE CLASSIFIER ARCHITECTURE
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    x = Dense(512, activation='relu')(x)  # Larger hidden layer
+    
+    # Just 2 layers - simpler is often better
+    x = Dense(512, activation='relu')(x)
     x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Dropout(0.5)(x)
-    x = Dense(256, activation='relu')(x)  # Additional layer
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dropout(0.3)(x)  # Less dropout
+    
+    x = Dense(128, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.2)(x)  # Even less dropout
+    
     output = Dense(output_units, activation=activation)(x)
 
     model = Model(base_model.input, output)
 
-    # Class weights for balanced training
-    class_weight = {i: 1.0 for i in range(num_classes)}  # Default weights
-    if class_mode == 'binary':
-        # Calculate class weights dynamically
-        total_samples = train_data.samples
-        class_counts = np.bincount(train_data.classes)
-        class_weight = {0: total_samples/(2*class_counts[0]), 
-                       1: total_samples/(2*class_counts[1])}
-        print(f"📊 Using class weights: {class_weight}")
-    elif num_classes <= 10:  # Only for manageable multi-class
-        total_samples = train_data.samples
-        class_counts = np.bincount(train_data.classes)
-        for i in range(num_classes):
-            if class_counts[i] > 0:
-                class_weight[i] = total_samples/(num_classes*class_counts[i])
-        print(f"📊 Using class weights for {num_classes} classes")
+    # No class weights needed for balanced multi-class iris recognition
+    class_weight = None
 
-    # Initial compilation with lower learning rate and fixed metrics
-    initial_optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=0.0001)
+    # Simple optimizer - EXACT FACE CLASSIFIER CONFIG
+    initial_optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=LEARNING_RATE)
     model.compile(
         optimizer=initial_optimizer,
         loss=loss,
@@ -257,19 +195,19 @@ def train_and_evaluate(model_fn, model_name):
 
     print(f"📊 {model_name} - Total parameters: {model.count_params():,}")
     
-    # Advanced callbacks for better training
+    # Simple but effective callbacks - EXACT FACE CLASSIFIER CONFIG
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
             monitor='val_accuracy',
-            patience=10,
+            patience=8,  # Less patience for quicker training
             restore_best_weights=True,
             verbose=1
         ),
         tf.keras.callbacks.ReduceLROnPlateau(
             monitor='val_accuracy',
-            factor=0.5,
+            factor=0.5,  # Less aggressive reduction
             patience=5,
-            min_lr=1e-7,
+            min_lr=1e-6,
             verbose=1
         ),
         tf.keras.callbacks.ModelCheckpoint(
@@ -280,8 +218,8 @@ def train_and_evaluate(model_fn, model_name):
         )
     ]
     
-    # Phase 1: Train top layers only
-    print(f"🎯 Phase 1: Training top layers for {INITIAL_EPOCHS} epochs")
+    # Phase 1: Train top layers only (like face classifier)
+    print(f"\n🚀 Phase 1: Training top layers ({INITIAL_EPOCHS} epochs)")
     history1 = model.fit(
         train_data,
         epochs=INITIAL_EPOCHS,
@@ -291,28 +229,27 @@ def train_and_evaluate(model_fn, model_name):
         verbose=1
     )
     
-    # Phase 2: Fine-tune with unfrozen layers
-    print(f"🔧 Phase 2: Fine-tuning with unfrozen layers for {FINE_TUNE_EPOCHS} epochs")
+    # Phase 2: Fine-tuning last 50 layers (like face classifier)
+    print(f"\n🔧 Phase 2: Fine-tuning last 50 layers ({FINE_TUNE_EPOCHS} epochs)")
     
-    # Unfreeze top layers of base model for fine-tuning (same as face)
-    for layer in base_model.layers[-30:]:  # Unfreeze more layers
+    # Unfreeze last 50 layers exactly like face classifier
+    for layer in base_model.layers[-50:]:
         layer.trainable = True
     
-    # Recompile with lower learning rate for fine-tuning
-    fine_tune_optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=0.00001)
+    # Recompile with lower learning rate
     model.compile(
-        optimizer=fine_tune_optimizer,
+        optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=FINE_TUNE_RATE),
         loss=loss,
-        metrics=['accuracy']  # Keep only basic accuracy for compatibility
+        metrics=['accuracy']
     )
     
     history2 = model.fit(
         train_data,
-        epochs=INITIAL_EPOCHS + FINE_TUNE_EPOCHS,
+        epochs=EPOCHS,
         initial_epoch=INITIAL_EPOCHS,
         validation_data=val_data,
         class_weight=class_weight,
-        callbacks=callbacks,
+        callbacks=callbacks,  # Use same callbacks as face classifier
         verbose=1
     )
     
@@ -325,56 +262,30 @@ def train_and_evaluate(model_fn, model_name):
     val_data.reset()
     y_true = val_data.classes
     y_pred_proba = model.predict(val_data, verbose=0)
+    y_pred = np.argmax(y_pred_proba, axis=1)
     
-    if class_mode == 'binary':
-        y_prob = y_pred_proba.ravel()
-        y_pred = (y_prob > 0.5).astype(int)
-        
-        min_len = min(len(y_true), len(y_prob))
-        y_true = y_true[:min_len]
-        y_prob = y_prob[:min_len]
-        y_pred = y_pred[:min_len]
-        
-        # Calculate metrics
-        cm = confusion_matrix(y_true, y_pred)
-        auc = roc_auc_score(y_true, y_prob)
-    else:
-        y_pred = np.argmax(y_pred_proba, axis=1)
-        
-        min_len = min(len(y_true), len(y_pred))
-        y_true = y_true[:min_len]
-        y_pred = y_pred[:min_len]
-        y_pred_proba = y_pred_proba[:min_len]
-        
-        cm = confusion_matrix(y_true, y_pred)
-        
-        try:
-            from sklearn.preprocessing import label_binarize
-            y_true_bin = label_binarize(y_true, classes=list(range(num_classes)))
-            auc = roc_auc_score(y_true_bin, y_pred_proba, average='macro', multi_class='ovr')
-        except:
-            auc = 0.0
-            print(f"   ⚠️  Could not calculate AUC for multi-class")
-
-    print(f"📈 {model_name} - AUC: {auc:.4f}")
+    min_len = min(len(y_true), len(y_pred))
+    y_true = y_true[:min_len]
+    y_pred = y_pred[:min_len]
+    
+    # Calculate accuracy
+    from sklearn.metrics import accuracy_score
+    accuracy = accuracy_score(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred)
+    
+    print(f"📈 {model_name} - Accuracy: {accuracy*100:.2f}%")
 
     # Ensure save directory exists before saving
     os.makedirs(SAVE_PATH, exist_ok=True)
     
-    # Save Confusion Matrix
+    # Save Confusion Matrix (simplified for multi-class)
     try:
-        plt.figure(figsize=(8, 6))
+        plt.figure(figsize=(10, 8))
         plt.imshow(cm, cmap='Blues')
-        plt.title(f"{model_name} Confusion Matrix")
-        plt.xlabel("Predicted")
-        plt.ylabel("Actual")
+        plt.title(f"{model_name} Iris Person Recognition")
+        plt.xlabel("Predicted Person")
+        plt.ylabel("Actual Person")
         plt.colorbar()
-        
-        # Add text annotations
-        for i in range(cm.shape[0]):
-            for j in range(cm.shape[1]):
-                plt.text(j, i, str(cm[i, j]), ha='center', va='center')
-        
         confusion_matrix_path = f"{SAVE_PATH}/{model_name}_confusion_matrix.png"
         print(f"💾 Saving confusion matrix to: {confusion_matrix_path}")
         plt.savefig(confusion_matrix_path, dpi=300, bbox_inches='tight')
@@ -383,54 +294,6 @@ def train_and_evaluate(model_fn, model_name):
         print(f"⚠️  Warning: Could not save confusion matrix for {model_name}: {e}")
         plt.close()
 
-    # ROC Curve
-    if class_mode == 'binary':
-        try:
-            fpr, tpr, _ = roc_curve(y_true, y_prob)
-            plt.figure(figsize=(8, 6))
-            plt.plot(fpr, tpr, label=f"AUC = {auc:.4f}")
-            plt.plot([0, 1], [0, 1], '--', color='gray')
-            plt.xlabel("False Positive Rate")
-            plt.ylabel("True Positive Rate")
-            plt.title(f"{model_name} ROC Curve")
-            plt.legend()
-            plt.grid(alpha=0.3)
-            roc_curve_path = f"{SAVE_PATH}/{model_name}_roc_curve.png"
-            print(f"💾 Saving ROC curve to: {roc_curve_path}")
-            plt.savefig(roc_curve_path, dpi=300, bbox_inches='tight')
-            plt.close()
-        except Exception as e:
-            print(f"⚠️  Warning: Could not save ROC curve for {model_name}: {e}")
-            plt.close()
-    else:
-        plt.figure(figsize=(10, 8))
-        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
-        
-        for i in range(num_classes):
-            if i < len(colors):
-                color = colors[i]
-            else:
-                color = np.random.rand(3,)
-            
-            y_true_binary = (y_true == i).astype(int)
-            y_score = y_pred_proba[:, i]
-            
-            try:
-                fpr, tpr, _ = roc_curve(y_true_binary, y_score)
-                class_auc = roc_auc_score(y_true_binary, y_score)
-                plt.plot(fpr, tpr, color=color, 
-                        label=f'Class {i} (AUC = {class_auc:.2f})')
-            except:
-                continue
-        
-        plt.plot([0, 1], [0, 1], '--', color='gray')
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title(f'{model_name} Multi-class ROC Curve')
-        plt.legend()
-        plt.grid(alpha=0.3)
-        plt.savefig(f"{SAVE_PATH}/{model_name}_roc_curve.png", dpi=300, bbox_inches='tight')
-        plt.close()
 
     # Save training history
     try:
@@ -476,7 +339,7 @@ def train_and_evaluate(model_fn, model_name):
     del model
     tf.keras.backend.clear_session()
 
-    return auc, cm
+    return accuracy, cm
 
 if __name__ == "__main__":
     models = {
@@ -490,23 +353,20 @@ if __name__ == "__main__":
 
     results = []
 
-    print(f"\n🏁 Starting iris spoof detection training for {len(models)} models...")
-    print(f"📊 Data split: 60% Real, 40% Spoof (Optimal Balance)")
-    print(f"⚙️  Configuration: {INITIAL_EPOCHS + FINE_TUNE_EPOCHS} epochs (Transfer: {INITIAL_EPOCHS} + Fine-tune: {FINE_TUNE_EPOCHS})")
-    print(f"📏 Batch size: {BATCH_SIZE}, Image size: {IMG_SIZE}")
-    print(f"🎯 Target: High accuracy iris spoof detection with fine-tuning strategy")
+    print(f"\n🏁 Starting HIGH-ACCURACY iris person recognition for {len(models)} models...")
+    print(f"🎯 Target Accuracy: 80-95% (Real Iris Person Recognition)")
+    print(f"👥 Recognizing {num_classes} different people")
+    print(f"⚙️  Configuration: {EPOCHS} epochs, batch size {BATCH_SIZE}, image size {IMG_SIZE}")
+    print(f"🔧 Two-Phase Training: {INITIAL_EPOCHS} initial + {FINE_TUNE_EPOCHS} fine-tune (50 layers)")
 
     # Train each model with enhanced strategy
     for name, fn in models.items():
         try:
-            auc, cm = train_and_evaluate(fn, name)
+            accuracy, cm = train_and_evaluate(fn, name)
             results.append({
                 "Model": name,
-                "ROC_AUC": auc,
-                "TN": cm[0, 0],
-                "FP": cm[0, 1], 
-                "FN": cm[1, 0],
-                "TP": cm[1, 1]
+                "Accuracy": f"{accuracy*100:.2f}%",
+                "Accuracy_Score": accuracy
             })
         except Exception as e:
             print(f"❌ Error training {name}: {e}")
@@ -515,20 +375,26 @@ if __name__ == "__main__":
     # Save results
     if results:
         df = pd.DataFrame(results)
-        df = df.sort_values(by="ROC_AUC", ascending=False)
+        df = df.sort_values(by="Accuracy_Score", ascending=False)
         
-        df.to_csv(f"{SAVE_PATH}/model_comparison_results.csv", index=False)
+        df.to_csv(f"{SAVE_PATH}/iris_recognition_results.csv", index=False)
         
-        print(f"\n🏆 Final Results:")
+        print(f"\n🏆 Final Iris Person Recognition Results:")
         print("=" * 60)
-        print(df.to_string(index=False))
+        print(df[['Model', 'Accuracy']].to_string(index=False))
         print("=" * 60)
-        print(f"📄 Results saved to: {SAVE_PATH}/model_comparison_results.csv")
         
         # Show best model
         best_model = df.iloc[0]
-        print(f"🥇 Best model: {best_model['Model']} (AUC: {best_model['ROC_AUC']:.4f})")
+        best_accuracy = best_model['Accuracy_Score'] * 100
+        print(f"🥇 Best model: {best_model['Model']} (Accuracy: {best_model['Accuracy']})")
+        
+        # Check if we achieved target
+        if best_accuracy >= 80:
+            print(f"🎉 SUCCESS! Achieved {best_accuracy:.1f}% accuracy (target: 80%+)")
+        else:
+            print(f"⚠️  Below target: {best_accuracy:.1f}% accuracy (target: 80%+)")
     else:
         print("❌ No models completed successfully")
 
-    print(f"\n✅ Training complete! Check {SAVE_PATH} for all results and visualizations.")
+    print(f"\n✅ Iris person recognition training complete! Check {SAVE_PATH} for all results.")

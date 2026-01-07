@@ -6,6 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import sys
+import shutil
+from pathlib import Path
 
 from tensorflow.keras.applications import (
     ResNet50, VGG16, InceptionV3,
@@ -25,39 +27,37 @@ from utils.gpu_utils import setup_gpu_acceleration, print_gpu_setup_guidance
 gpu_available = setup_gpu_acceleration()
 print_gpu_setup_guidance(gpu_available)
 
-# Optimized Configuration for High-Accuracy Face Spoof Detection (80-95% target)
+# SIMPLIFIED Configuration for Better Face Spoof Detection Accuracy
 IMG_SIZE = (224, 224)
-BATCH_SIZE = 16  # Optimal batch size for stable gradients and better convergence
-EPOCHS = 60  # More epochs for comprehensive learning
-INITIAL_EPOCHS = 40  # Extended initial training
-FINE_TUNE_EPOCHS = 20  # Extended fine-tuning
-LEARNING_RATE = 0.00001  # Lower learning rate for better convergence
-FINE_TUNE_RATE = 0.000001  # Very low rate for fine-tuning
+BATCH_SIZE = 32
+EPOCHS = 25  # Match test file for optimal results
+INITIAL_EPOCHS = 15  # Initial training like test file
+FINE_TUNE_EPOCHS = 10  # Fine-tuning like test file
+LEARNING_RATE = 0.001
+FINE_TUNE_RATE = 0.0002
 
 # Fix path resolution - go up two levels from classifiers/face/ to project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "face")
+DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "face_organized")
 SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "face", "spoof_detection")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
 print(f"📁 Project root: {PROJECT_ROOT}")
-print(f"📁 Original dataset path: {os.path.join(PROJECT_ROOT, 'data', 'face')}")
+print(f"📁 Using organized dataset: {DATASET_PATH}")
 print(f"💾 Results will be saved to: {SAVE_PATH}")
 
-# Advanced Data Augmentation specifically optimized for face spoof detection
+# Simplified Data Augmentation for Better Learning
 datagen = ImageDataGenerator(
     rescale=1./255,
-    validation_split=0.2,  # More validation data for better model evaluation
-    rotation_range=15,  # Reduced rotation for faces
-    width_shift_range=0.15,  # Moderate shifts
-    height_shift_range=0.15,
-    shear_range=0.1,  # Reduced shear for face geometry preservation
-    zoom_range=[0.85, 1.15],  # Controlled zoom for face scale variation
+    validation_split=0.2,
+    rotation_range=10,  # Reduced rotation
+    width_shift_range=0.08,  # Reduced shift
+    height_shift_range=0.08,
     horizontal_flip=True,
-    fill_mode='reflect',  # Better fill mode for face boundaries
-    brightness_range=[0.7, 1.3],  # Enhanced brightness variation
-    channel_shift_range=0.15  # Increased color variation
+    zoom_range=0.1,  # Reduced zoom
+    brightness_range=[0.9, 1.1],  # Reduced brightness variation
+    fill_mode='nearest'
 )
 
 # Validation data with minimal preprocessing for consistent evaluation
@@ -66,118 +66,123 @@ val_datagen = ImageDataGenerator(
     validation_split=0.2
 )
 
-def organize_face_data_automatically():
-    """Automatically organize face data with optimal 60% real, 40% spoof balance"""
-    import shutil
-    import random
+def fix_face_dataset_labels():
+    """
+    Automatically fix dataset labeling by moving spoof images from live folder to spoof folder.
+    Based on filename patterns that indicate spoofing attacks.
+    """
+    live_dir = Path(DATASET_PATH) / "live"
+    spoof_dir = Path(DATASET_PATH) / "spoof"
     
-    organized_path = os.path.join(PROJECT_ROOT, "data", "face_organized")
+    # Create directories if they don't exist
+    live_dir.mkdir(parents=True, exist_ok=True)
+    spoof_dir.mkdir(parents=True, exist_ok=True)
     
-    # Check if organized data already exists
-    if os.path.exists(organized_path):
-        live_path = os.path.join(organized_path, "live") 
-        spoof_path = os.path.join(organized_path, "spoof")
-        if os.path.exists(live_path) and os.path.exists(spoof_path):
-            live_count = len([f for f in os.listdir(live_path) if f.endswith(('.jpg', '.jpeg', '.png'))])
-            spoof_count = len([f for f in os.listdir(spoof_path) if f.endswith(('.jpg', '.jpeg', '.png'))])
-            total_count = live_count + spoof_count
-            if total_count > 0:
-                live_percentage = (live_count / total_count * 100)
-                spoof_percentage = (spoof_count / total_count * 100)
-                print(f"✅ Using existing organized data: {organized_path}")
-                print(f"📊 Current split - Live: {live_count} ({live_percentage:.1f}%), Spoof: {spoof_count} ({spoof_percentage:.1f}%)")
-                
-                # Check if rebalancing is needed for optimal performance
-                if live_percentage < 55 or live_percentage > 65:
-                    print("🔄 Rebalancing data for optimal 60/40 split...")
-                else:
-                    return organized_path
+    # Check if we need to organize data from scratch
+    live_count = len([f for f in live_dir.glob('*') if f.suffix.lower() in ['.jpg', '.jpeg', '.png']])
+    spoof_count = len([f for f in spoof_dir.glob('*') if f.suffix.lower() in ['.jpg', '.jpeg', '.png']])
     
-    # Check if raw data exists and needs organization
-    if not os.path.exists(DATASET_PATH):
-        print(f"❌ Dataset not found at {DATASET_PATH}")
-        return DATASET_PATH
+    if live_count == 0 and spoof_count == 0:
+        print("📦 Organizing dataset from original face data...")
+        organize_from_original_data()
+        return
     
-    print("🔧 Organizing face data with optimal 60% real, 40% spoof balance...")
+    # Spoof attack patterns in filenames
+    spoof_patterns = [
+        'bobblehead',
+        'resin_projection', 
+        'resin',
+        'mask',
+        'filament',
+        'mannequin',
+        'HQ_3D_MASK',
+        'cloth_mask'
+    ]
     
-    if os.path.exists(organized_path):
-        shutil.rmtree(organized_path)
-    os.makedirs(organized_path, exist_ok=True)
+    moved_count = 0
     
-    # Create binary classification structure
-    live_path = os.path.join(organized_path, "live")
-    spoof_path = os.path.join(organized_path, "spoof")
-    os.makedirs(live_path, exist_ok=True)
-    os.makedirs(spoof_path, exist_ok=True)
+    print("🔍 Scanning for misplaced spoof images...")
     
-    # Collect all images
-    all_images = []
-    supported_formats = ('.jpg', '.jpeg', '.png', '.bmp')
+    for file_path in live_dir.glob('*'):
+        if file_path.is_file() and file_path.suffix.lower() in ['.jpg', '.jpeg', '.png']:
+            filename_lower = file_path.name.lower()
+            
+            # Check if filename contains spoof patterns
+            for pattern in spoof_patterns:
+                if pattern.lower() in filename_lower:
+                    # Move to spoof folder
+                    destination = spoof_dir / file_path.name
+                    print(f"Moving {file_path.name} -> spoof/")
+                    shutil.move(str(file_path), str(destination))
+                    moved_count += 1
+                    break
     
-    # Collect live subjects
-    live_source = os.path.join(DATASET_PATH, "live_subject_images")
-    if os.path.exists(live_source):
-        print(f"📸 Collecting live subjects from: {live_source}")
-        for file in os.listdir(live_source):
-            if file.lower().endswith(supported_formats):
-                all_images.append((os.path.join(live_source, file), file, "live_subject"))
+    if moved_count > 0:
+        print(f"✅ Dataset fix complete! Moved {moved_count} spoof images from live/ to spoof/")
+        
+        # Show updated counts
+        live_count = len([f for f in live_dir.glob('*') if f.suffix.lower() in ['.jpg', '.jpeg', '.png']])
+        spoof_count = len([f for f in spoof_dir.glob('*') if f.suffix.lower() in ['.jpg', '.jpeg', '.png']])
+        
+        print(f"📊 Updated counts:")
+        print(f"   Live: {live_count} images")
+        print(f"   Spoof: {spoof_count} images")
+    else:
+        print("✅ No misplaced images found - dataset already correctly labeled")
+
+def organize_from_original_data():
+    """Organize images from original data/face structure into live/spoof folders"""
+    original_face_dir = Path(PROJECT_ROOT) / "data" / "face"
+    live_dir = Path(DATASET_PATH) / "live"
+    spoof_dir = Path(DATASET_PATH) / "spoof"
     
-    # Collect all spoof categories
-    spoof_categories = [
+    if not original_face_dir.exists():
+        print(f"❌ Original face data not found at {original_face_dir}")
+        return
+    
+    print("📋 Organizing images from original face data structure...")
+    
+    # Copy live subject images
+    live_source = original_face_dir / "live_subject_images"
+    if live_source.exists():
+        for img_file in live_source.glob('*'):
+            if img_file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
+                shutil.copy2(img_file, live_dir / img_file.name)
+        print(f"📸 Copied {len(list(live_dir.glob('*')))} live images")
+    
+    # Copy spoof images from various spoof directories
+    spoof_patterns = [
         "bobblehead_images", "filament_projection_images", "Full_cloth_mask_images",
         "half_cloth_mask_images", "HQ_3D_MASK_images", "mannequin_projection_images", 
         "resin_projection_images", "white_filament_images", "white_mannequin_images",
         "white_resin_images"
     ]
     
-    for category in spoof_categories:
-        category_path = os.path.join(DATASET_PATH, category)
-        if os.path.exists(category_path):
-            # Handle both direct images and device-specific folders
-            if any(d in os.listdir(category_path) for d in ["DSLR", "IPHONE14", "SAMSUNG_S9"]):
-                # Device-specific folders
-                for device in ["DSLR", "IPHONE14", "SAMSUNG_S9"]:
-                    device_path = os.path.join(category_path, device)
-                    if os.path.exists(device_path):
-                        for file in os.listdir(device_path):
-                            if file.lower().endswith(supported_formats):
-                                all_images.append((os.path.join(device_path, file), f"{category}_{device}_{file}", category))
-            else:
-                # Direct images
-                for file in os.listdir(category_path):
-                    if file.lower().endswith(supported_formats):
-                        all_images.append((os.path.join(category_path, file), f"{category}_{file}", category))
+    spoof_count = 0
+    for pattern in spoof_patterns:
+        pattern_dir = original_face_dir / pattern
+        if pattern_dir.exists():
+            # Handle device-specific subdirectories
+            for device in ["DSLR", "IPHONE14", "SAMSUNG_S9"]:
+                device_dir = pattern_dir / device
+                if device_dir.exists():
+                    for img_file in device_dir.glob('*'):
+                        if img_file.suffix.lower() in ['.jpg', '.jpeg', '.png']:
+                            new_name = f"{pattern}_{device}_{img_file.name}"
+                            shutil.copy2(img_file, spoof_dir / new_name)
+                            spoof_count += 1
     
-    if not all_images:
-        print("❌ No image files found in the dataset!")
-        return DATASET_PATH
-    
-    print(f"📸 Found {len(all_images)} total images")
-    
-    # Improved data splitting for optimal accuracy: 70% real, 30% spoof\n    # This balance has shown better results for face spoof detection\n    random.seed(42)  # For reproducible results\n    random.shuffle(all_images)\n    \n    # Separate real and spoof images first\n    real_source_images = [img for img in all_images if \"live_subject\" in img[2]]\n    spoof_source_images = [img for img in all_images if \"live_subject\" not in img[2]]\n    \n    # Calculate optimal split (aim for 70% real, 30% spoof for better accuracy)\n    target_real_ratio = 0.7\n    total_target = min(len(real_source_images) * 1.4, len(spoof_source_images) * 3.33)  # Ensure we have enough of both\n    \n    num_real = int(total_target * target_real_ratio)\n    num_spoof = int(total_target * (1 - target_real_ratio))\n    \n    # Take the available images, ensuring we don't exceed what we have\n    num_real = min(num_real, len(real_source_images))\n    num_spoof = min(num_spoof, len(spoof_source_images))\n    \n    real_images = real_source_images[:num_real]\n    spoof_images = spoof_source_images[:num_spoof]\n    \n    print(f\"📊 Organizing {len(real_images)} images as REAL ({len(real_images)/(len(real_images)+len(spoof_images))*100:.1f}%)\")\n    print(f\"📊 Organizing {len(spoof_images)} images as SPOOF ({len(spoof_images)/(len(real_images)+len(spoof_images))*100:.1f}%)\")
-    
-    # Copy images to new structure
-    for i, (src_path, filename, category) in enumerate(real_images):
-        dst_path = os.path.join(live_path, filename)
-        shutil.copy2(src_path, dst_path)
-        if (i + 1) % 50 == 0:
-            print(f"  Copied {i + 1}/{len(real_images)} real images...")
-    
-    for i, (src_path, filename, category) in enumerate(spoof_images):
-        dst_path = os.path.join(spoof_path, filename)
-        shutil.copy2(src_path, dst_path)
-        if (i + 1) % 50 == 0:
-            print(f"  Copied {i + 1}/{len(spoof_images)} spoof images...")
-    
-    print("✅ Face data organized for optimal performance!")
-    print(f"📁 Organized dataset location: {organized_path}")
-    print(f"   ├── live/  ({len(real_images)} images - {len(real_images)/(len(real_images)+len(spoof_images))*100:.1f}%)")
-    print(f"   └── spoof/ ({len(spoof_images)} images - {len(spoof_images)/(len(real_images)+len(spoof_images))*100:.1f}%)")
-    
-    return organized_path
+    print(f"👺 Copied {spoof_count} spoof images")
+    print(f"✅ Dataset organization complete!")
+    print(f"   Live: {len(list(live_dir.glob('*')))} images")
+    print(f"   Spoof: {spoof_count} images")
 
-# Auto-organize data and set path
-DATASET_PATH = organize_face_data_automatically()
+# Automatically fix dataset labels before training
+print("🔧 Checking dataset labels...")
+fix_face_dataset_labels()
+
+# Skip auto-organization since we're using the corrected face_organized dataset
+# DATASET_PATH = organize_face_data_automatically()
 
 if not os.path.exists(DATASET_PATH):
     print(f"❌ Dataset not found at {DATASET_PATH}")
@@ -251,50 +256,37 @@ def train_and_evaluate(model_fn, model_name):
     for layer in base_model.layers:
         layer.trainable = False
 
-    # Advanced architecture for high-accuracy face spoof detection
+    # Simple but effective architecture
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     
-    # Multi-scale feature extraction
-    x = Dense(1024, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001))(x)
+    # Just 2 layers - simpler is often better
+    x = Dense(512, activation='relu')(x)
     x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dropout(0.3)(x)  # Less dropout
     
-    x = Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001))(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Dropout(0.4)(x)
-    
-    x = Dense(256, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001))(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
-    
-    # Additional feature processing layer
-    x = Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001))(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.Dropout(0.2)(x)
+    x = Dense(128, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.2)(x)  # Even less dropout
     
     output = Dense(output_units, activation=activation)(x)
 
     model = Model(base_model.input, output)
 
-    # Optimized class weights for better balance
-    class_weight = {0: 1.0, 1: 1.0}  # Default weights
+    # Balanced class weighting - less aggressive
     if class_mode == 'binary':
-        # Enhanced class weight calculation for spoof detection
         total_samples = train_data.samples
         class_counts = np.bincount(train_data.classes)
-        # Apply stronger balancing for minority class
-        class_weight = {0: total_samples/(1.8*class_counts[0]), 
-                       1: total_samples/(2.2*class_counts[1])}
-        print(f"📊 Using optimized class weights: {class_weight}")
+        # Balanced weighting without over-emphasis
+        live_weight = total_samples / (2.0 * class_counts[0])
+        spoof_weight = total_samples / (2.0 * class_counts[1])
+        class_weight = {0: live_weight, 1: spoof_weight}
+        print(f"📊 Using balanced class weights: {class_weight}")
+        print(f"   Live samples: {class_counts[0]}, Spoof samples: {class_counts[1]}")
+    else:
+        class_weight = None
 
-    # Initial compilation with optimized parameters
-    initial_optimizer = tf.keras.optimizers.legacy.Adam(
-        learning_rate=LEARNING_RATE,
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-8
-    )
+    # Simple optimizer
+    initial_optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=LEARNING_RATE)
     model.compile(
         optimizer=initial_optimizer,
         loss=loss,
@@ -303,104 +295,62 @@ def train_and_evaluate(model_fn, model_name):
 
     print(f"📊 {model_name} - Total parameters: {model.count_params():,}")
     
-    # Advanced callbacks for high-accuracy training
+    # Simple but effective callbacks
     callbacks = [
         tf.keras.callbacks.EarlyStopping(
             monitor='val_accuracy',
-            patience=15,  # Increased patience for better convergence
+            patience=8,  # Less patience for quicker training
             restore_best_weights=True,
-            verbose=1,
-            min_delta=0.001  # Minimum improvement threshold
+            verbose=1
         ),
         tf.keras.callbacks.ReduceLROnPlateau(
             monitor='val_accuracy',
-            factor=0.3,  # More aggressive reduction
-            patience=8,
-            min_lr=1e-8,
-            verbose=1,
-            cooldown=3
+            factor=0.5,  # Less aggressive reduction
+            patience=5,
+            min_lr=1e-6,
+            verbose=1
         ),
         tf.keras.callbacks.ModelCheckpoint(
             f"{SAVE_PATH}/{model_name}_best.h5",
             monitor='val_accuracy',
             save_best_only=True,
-            verbose=1,
-            save_weights_only=False
-        ),
-        # Add learning rate scheduling
-        tf.keras.callbacks.LearningRateScheduler(
-            lambda epoch: LEARNING_RATE * (0.95 ** epoch),
-            verbose=0
+            verbose=1
         )
     ]
     
-    # Phase 1: Train top layers only with gradual learning
-    print(f"🎯 Phase 1: Training top layers for {INITIAL_EPOCHS} epochs")
+    # Phase 1: Train top layers only (like test file)
+    print(f"\n🚀 Phase 1: Training top layers ({INITIAL_EPOCHS} epochs)")
     history1 = model.fit(
         train_data,
         epochs=INITIAL_EPOCHS,
         validation_data=val_data,
         class_weight=class_weight,
         callbacks=callbacks,
-        verbose=1,
-        steps_per_epoch=train_data.samples // BATCH_SIZE,
-        validation_steps=val_data.samples // BATCH_SIZE
+        verbose=1
     )
     
-    # Phase 2: Fine-tune with unfrozen layers for high accuracy
-    print(f"🔧 Phase 2: Fine-tuning with unfrozen layers for {FINE_TUNE_EPOCHS} epochs")
+    # Phase 2: Fine-tuning last 50 layers (like test file)
+    print(f"\n🔧 Phase 2: Fine-tuning last 50 layers ({FINE_TUNE_EPOCHS} epochs)")
     
-    # Unfreeze more layers gradually for better fine-tuning
-    for layer in base_model.layers[-50:]:  # Unfreeze more layers for better adaptation
+    # Unfreeze last 50 layers exactly like test file
+    for layer in base_model.layers[-50:]:
         layer.trainable = True
     
-    # Recompile with much lower learning rate for fine-tuning
-    fine_tune_optimizer = tf.keras.optimizers.legacy.Adam(
-        learning_rate=FINE_TUNE_RATE,  # Use predefined fine-tune rate
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-8
-    )
+    # Recompile with lower learning rate
     model.compile(
-        optimizer=fine_tune_optimizer,
+        optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=FINE_TUNE_RATE),
         loss=loss,
-        metrics=['accuracy']  # Keep only basic accuracy for compatibility
+        metrics=['accuracy']
     )
-    
-    # Update callbacks for fine-tuning phase
-    fine_tune_callbacks = [
-        tf.keras.callbacks.EarlyStopping(
-            monitor='val_accuracy',
-            patience=12,  # More patience for fine-tuning
-            restore_best_weights=True,
-            verbose=1,
-            min_delta=0.0005
-        ),
-        tf.keras.callbacks.ReduceLROnPlateau(
-            monitor='val_accuracy',
-            factor=0.2,
-            patience=6,
-            min_lr=1e-9,
-            verbose=1
-        ),
-        tf.keras.callbacks.ModelCheckpoint(
-            f"{SAVE_PATH}/{model_name}_best.h5",
-            monitor='val_accuracy',
-            save_best_only=True,
-            verbose=1
-        )
-    ]
     
     history2 = model.fit(
         train_data,
-        epochs=INITIAL_EPOCHS + FINE_TUNE_EPOCHS,
+        epochs=EPOCHS,
         initial_epoch=INITIAL_EPOCHS,
         validation_data=val_data,
         class_weight=class_weight,
-        callbacks=fine_tune_callbacks,  # Use fine-tuning callbacks
-        verbose=1,
-        steps_per_epoch=train_data.samples // BATCH_SIZE,
-        validation_steps=val_data.samples // BATCH_SIZE
+        callbacks=callbacks,  # Use same callbacks as test file
+        verbose=1
     )
     
     # Combine training histories
