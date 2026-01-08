@@ -286,7 +286,7 @@ def train_and_evaluate(model_fn, model_name):
         class_weight = None
 
     # Simple optimizer
-    initial_optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=LEARNING_RATE)
+    initial_optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
     model.compile(
         optimizer=initial_optimizer,
         loss=loss,
@@ -338,7 +338,7 @@ def train_and_evaluate(model_fn, model_name):
     
     # Recompile with lower learning rate
     model.compile(
-        optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=FINE_TUNE_RATE),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=FINE_TUNE_RATE),
         loss=loss,
         metrics=['accuracy']
     )
