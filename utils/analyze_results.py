@@ -19,12 +19,12 @@ def load_and_analyze_results(classifier_type="fingerprint"):
     
     # Handle different path structures for different classifiers
     if classifier_type == "face":
-        # Face classifier saves to spoof_detection subdirectory
-        results_path = f"./results/{classifier_type}/spoof_detection"
+        # Face classifier saves directly to face directory
+        results_path = f"./results/{classifier_type}"
         csv_path = os.path.join(results_path, "model_comparison_results.csv")
     elif classifier_type == "iris":
-        # Iris classifier saves to person_recognition subdirectory
-        results_path = f"./results/{classifier_type}/person_recognition"
+        # Iris classifier saves directly to iris directory
+        results_path = f"./results/{classifier_type}"
         csv_path = os.path.join(results_path, "iris_recognition_results.csv")
     else:
         # Other classifiers use the base results directory

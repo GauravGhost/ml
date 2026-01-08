@@ -40,7 +40,7 @@ MAX_CLASSES = 50  # Limit to 50 people for high accuracy
 # Fix path resolution - go up two levels from classifiers/iris/ to project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "iris")
-SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "iris", "person_recognition")
+SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "iris")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 

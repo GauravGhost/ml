@@ -39,7 +39,7 @@ FINE_TUNE_RATE = 0.0002
 # Fix path resolution - go up two levels from classifiers/face/ to project root
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DATASET_PATH = os.path.join(PROJECT_ROOT, "data", "face_organized")
-SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "face", "spoof_detection")
+SAVE_PATH = os.path.join(PROJECT_ROOT, "results", "face")
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 
