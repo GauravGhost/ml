@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 import sys
+import json
 from pathlib import Path
 import argparse
 
@@ -26,19 +27,52 @@ def load_and_analyze_results(classifier_type="fingerprint"):
         # Iris classifier saves directly to iris directory
         results_path = f"./results/{classifier_type}"
         csv_path = os.path.join(results_path, "iris_recognition_results.csv")
+    elif classifier_type == "unified":
+        # Unified classifier uses different structure - try CSV first, then JSON
+        results_path = f"./results/{classifier_type}"
+        csv_path = os.path.join(results_path, "unified_model_results.csv")
+        json_path = os.path.join(results_path, "unified_model_summary.json")
+        
+        # Try CSV first (newer format)
+        if os.path.exists(csv_path):
+            print(f"📊 Loading unified results from: {csv_path}")
+            df = pd.read_csv(csv_path)
+            return df, results_path
+        
+        # Fallback to JSON format (older format)
+        elif os.path.exists(json_path):
+            print(f"📊 Loading unified results from: {json_path}")
+            with open(json_path, 'r') as f:
+                unified_data = json.load(f)
+            
+            # Convert to DataFrame format compatible with analysis
+            model_data = []
+            for model, accuracy in unified_data['model_accuracies'].items():
+                model_data.append({
+                    'Model': model,
+                    'Accuracy': accuracy,
+                    'Accuracy_Score': accuracy  # For compatibility
+                })
+            
+            df = pd.DataFrame(model_data)
+            return df, results_path
+        
+        else:
+            print(f"❌ Unified model results not found. Please train the unified model first.")
+            return None, None
     else:
         # Other classifiers use the base results directory
         results_path = f"./results/{classifier_type}"
         csv_path = os.path.join(results_path, "model_comparison_results.csv")
     
-    if not os.path.exists(csv_path):
-        print(f"❌ Results file not found at: {csv_path}")
-        print(f"📋 Please run the {classifier_type} training script first to generate results")
-        return None, None
-    
-    # Load results
-    print(f"📊 Loading {classifier_type} results from: {csv_path}")
-    df = pd.read_csv(csv_path)
+        if not os.path.exists(csv_path):
+            print(f"❌ Results file not found at: {csv_path}")
+            print(f"📋 Please run the {classifier_type} training script first to generate results")
+            return None, None
+        
+        # Load results
+        print(f"📊 Loading {classifier_type} results from: {csv_path}")
+        df = pd.read_csv(csv_path)
     
     return df, results_path
 
@@ -347,6 +381,10 @@ def analyze_classifier_results(classifier_type="fingerprint"):
     print(f"🔍 {classifier_name} CLASSIFICATION RESULTS ANALYZER")
     print("="*50)
     
+    # Special handling for unified classifier
+    if classifier_type == "unified":
+        return analyze_unified_results()
+    
     # Load results - updated to use the new load function
     df, results_path = load_and_analyze_results(classifier_type)
     if df is None:
@@ -376,7 +414,7 @@ def analyze_all_classifiers():
     print("🔍 ANALYZING ALL BIOMETRIC CLASSIFIERS")
     print("="*50)
     
-    classifiers = ['fingerprint', 'face', 'iris']
+    classifiers = ['fingerprint', 'face', 'iris', 'unified']
     analyzed = []
     
     for classifier in classifiers:
@@ -391,11 +429,73 @@ def analyze_all_classifiers():
     else:
         print("\n❌ No classifier results found to analyze")
 
+def analyze_unified_results():
+    """Special analysis for unified multi-modal classifier"""
+    results_path = "./results/unified"
+    
+    # Check for required files - try CSV first, then JSON
+    csv_file = os.path.join(results_path, "unified_model_results.csv")
+    json_file = os.path.join(results_path, "unified_model_summary.json")
+    
+    if not os.path.exists(csv_file) and not os.path.exists(json_file):
+        print(f"❌ Unified model results not found. Please train the unified model first.")
+        return False
+    
+    print("📊 UNIFIED MULTI-MODAL CLASSIFIER ANALYSIS")
+    print("=" * 50)
+    
+    try:
+        # Try to load CSV file first
+        if os.path.exists(csv_file):
+            print(f"📊 Loading results from: {csv_file}")
+            df = pd.read_csv(csv_file)
+            
+            # Display model comparison
+            print("\n🎯 MODEL PERFORMANCE SUMMARY:")
+            print("-" * 40)
+            for _, row in df.iterrows():
+                accuracy = row['Accuracy'] if 'Accuracy' in df.columns else row['Accuracy_Score']
+                print(f"   {row['Model']:<15}: {accuracy:.4f} ({accuracy*100:.2f}%)")
+            
+            # Find best model
+            accuracy_col = 'Accuracy' if 'Accuracy' in df.columns else 'Accuracy_Score'
+            best_model = df.loc[df[accuracy_col].idxmax()]
+            print(f"\n🏆 BEST MODEL: {best_model['Model']} with {best_model[accuracy_col]:.4f} accuracy")
+        
+        else:
+            # Fallback to JSON file
+            print(f"📊 Loading results from: {json_file}")
+            with open(json_file, 'r') as f:
+                summary = json.load(f)
+            
+            print(f"\n🎯 MODEL PERFORMANCE SUMMARY:")
+            print("-" * 40)
+            for model, accuracy in summary['model_accuracies'].items():
+                print(f"   {model:<15}: {accuracy:.4f} ({accuracy*100:.2f}%)")
+            
+            print(f"\n🏆 BEST MODEL: {summary['best_model']} with {summary['best_accuracy']:.4f} accuracy")
+            print(f"📊 Total Classes: {summary['total_classes']}")
+            print(f"🏷️  Classes: {', '.join(summary['classes'])}")
+        
+        # Check for individual model reports
+        model_files = [f for f in os.listdir(results_path) if f.endswith('_classification_report.json')]
+        if model_files:
+            print(f"\n📋 DETAILED REPORTS AVAILABLE:")
+            for file in sorted(model_files):
+                model_name = file.replace('_classification_report.json', '')
+                print(f"   - {model_name}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error analyzing unified results: {str(e)}")
+        return False
+
 def main():
     """Main analysis function"""
     parser = argparse.ArgumentParser(description="Biometric Classification Results Analyzer")
     parser.add_argument("--classifier", "-c", 
-                       choices=["fingerprint", "face", "iris", "all"], 
+                       choices=["fingerprint", "face", "iris", "unified", "all"], 
                        default="all",
                        help="Choose classifier to analyze")
     
